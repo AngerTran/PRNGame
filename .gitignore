@@ -1,0 +1,35 @@
+## .NET / Visual Studio
+bin/
+obj/
+out/
+*.user
+*.suo
+*.cache
+*.nupkg
+.vs/
+*.DotSettings.user
+
+## Rider
+.idea/
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Bb]uild/
+[Ll]ogs/
+
+## NuGet
+packages/
+*.nuget.props
+*.nuget.targets
+
+## User secrets / local env
+appsettings.*.local.json
+secrets.json
+
+## OS
+Thumbs.db
+Desktop.ini
+.DS_Store
