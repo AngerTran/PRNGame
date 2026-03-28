@@ -1,0 +1,64 @@
+@page "/tools/api-explorer"
+@rendermode InteractiveServer
+@inject GameApiService Api
+
+<PageTitle>API Explorer</PageTitle>
+
+<h1 class="h3">API Explorer</h1>
+<p class="small">Gọi bất kỳ đường dẫn <code>api/v1/...</code> · <a href="/portal">← Trung tâm</a></p>
+
+<div class="row g-2 mb-2">
+    <div class="col-md-2">
+        <select class="form-select form-select-sm" @bind="_method">
+            <option>GET</option>
+            <option>POST</option>
+            <option>DELETE</option>
+        </select>
+    </div>
+    <div class="col-md-6">
+        <input class="form-control form-control-sm" @bind="_path" placeholder="api/v1/..." />
+    </div>
+    <div class="col-md-2">
+        <div class="form-check mt-1">
+            <input class="form-check-input" type="checkbox" id="authz" @bind="_useAuth" />
+            <label class="form-check-label small" for="authz">Bearer</label>
+        </div>
+    </div>
+    <div class="col-md-2">
+        <button type="button" class="btn btn-sm btn-primary w-100" @onclick="SendAsync">Gửi</button>
+    </div>
+</div>
+<textarea class="form-control form-control-sm font-monospace mb-2" rows="6" @bind="_body" placeholder="JSON body (POST/DELETE)"></textarea>
+<JsonApiResult Json="@_out" Error="@_err" />
+
+@code {
+    private string _method = "GET";
+    private string _path = "api/v1/health";
+    private bool _useAuth = true;
+    private string _body = "";
+    private string? _out;
+    private string? _err;
+
+    private async Task SendAsync()
+    {
+        _err = null; _out = null;
+        object? obj = null;
+        if ((_method == "POST" || _method == "DELETE") && !string.IsNullOrWhiteSpace(_body))
+        {
+            try
+            {
+                obj = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(_body);
+            }
+            catch (Exception ex)
+            {
+                _err = "JSON body không hợp lệ: " + ex.Message;
+                return;
+            }
+        }
+
+        var m = new HttpMethod(_method);
+        var (ok, res, err) = await Api.CallAsync(m, _path.TrimStart('/'), obj, _useAuth);
+        _out = res;
+        _err = ok ? null : err;
+    }
+}

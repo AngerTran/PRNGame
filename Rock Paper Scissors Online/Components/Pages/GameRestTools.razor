@@ -1,0 +1,62 @@
+@page "/tools/game"
+@rendermode InteractiveServer
+@inject GameApiService Api
+@inject AuthTokenStore Auth
+
+<PageTitle>Game REST</PageTitle>
+
+<h1 class="h3">Game REST API</h1>
+<p class="small"><a href="/portal">← Trung tâm</a> · Song song với SignalR trong <a href="/lobby">sảnh</a>.</p>
+
+@if (_session == null)
+{
+    <p><a href="/login">Đăng nhập</a></p>
+}
+else
+{
+    <input class="form-control mb-2" style="max-width:24rem" @bind="_roomId" placeholder="roomId" />
+
+    <div class="d-flex flex-wrap gap-1 mb-2">
+        <button type="button" class="btn btn-sm btn-primary" @onclick="@(() => Run(() => Api.GameStartAsync(_roomId)))">start</button>
+        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="@(() => Run(() => Api.GameSetReadyAsync(_roomId, true)))">ready true</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="@(() => Run(() => Api.GameSetReadyAsync(_roomId, false)))">ready false</button>
+        <button type="button" class="btn btn-sm btn-outline-dark" @onclick="@(() => Run(() => Api.GameGetStateAsync(_roomId)))">state</button>
+        <button type="button" class="btn btn-sm btn-outline-dark" @onclick="@(() => Run(() => Api.GameGetReadyStatesAsync(_roomId)))">ready-states</button>
+    </div>
+    <div class="d-flex flex-wrap gap-1 mb-2">
+        <button type="button" class="btn btn-sm btn-secondary" @onclick="@(() => Run(() => Api.GameSubmitMoveAsync(_roomId, "rock")))">move rock</button>
+        <button type="button" class="btn btn-sm btn-secondary" @onclick="@(() => Run(() => Api.GameSubmitMoveAsync(_roomId, "paper")))">paper</button>
+        <button type="button" class="btn btn-sm btn-secondary" @onclick="@(() => Run(() => Api.GameSubmitMoveAsync(_roomId, "scissors")))">scissors</button>
+        <button type="button" class="btn btn-sm btn-warning" @onclick="@(() => Run(() => Api.GameProcessRoundAsync(_roomId)))">round/result</button>
+    </div>
+    <div class="d-flex flex-wrap gap-1 mb-2">
+        <input class="form-control form-control-sm" style="width:16rem" @bind="_winner" placeholder="winnerId (end / result)" />
+        <button type="button" class="btn btn-sm btn-danger" @onclick="@(() => Run(() => Api.GameEndAsync(_roomId, string.IsNullOrWhiteSpace(_winner) ? null : _winner.Trim())))">end</button>
+        <button type="button" class="btn btn-sm btn-danger" @onclick="@(() => Run(() => Api.GameProcessResultAsync(_roomId, string.IsNullOrWhiteSpace(_winner) ? null : _winner.Trim())))">result</button>
+    </div>
+
+    <JsonApiResult Json="@_json" Error="@_err" />
+}
+
+@code {
+    private PortalAuthState? _session;
+    private string _roomId = "";
+    private string _winner = "";
+    private string? _json;
+    private string? _err;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _session = await Auth.LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task Run(Func<Task<(bool Ok, string Body, string? Error)>> fn)
+    {
+        _err = null; _json = null;
+        var (ok, body, err) = await fn();
+        _json = ok ? body : null;
+        _err = err;
+    }
+}

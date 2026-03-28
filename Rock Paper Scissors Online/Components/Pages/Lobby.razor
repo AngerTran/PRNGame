@@ -1,0 +1,200 @@
+@page "/lobby"
+@rendermode InteractiveServer
+@inject GameApiService Api
+@inject AuthTokenStore Auth
+@inject NavigationManager Nav
+
+<PageTitle>Sảnh game</PageTitle>
+
+@if (!_ready)
+{
+    <p>Đang tải…</p>
+}
+else
+{
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h1 class="h3 mb-0">Sảnh phòng</h1>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" type="button" @onclick="RefreshRoomsAsync">Làm mới</button>
+        </div>
+    </div>
+    <p class="text-muted small">Xin chào, <strong>@_session!.Username</strong>. <a href="/portal">Trung tâm API</a> · <a href="/">Razor</a> · <a href="/history">Lịch sử</a></p>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert alert-info">@_message</div>
+    }
+
+    <div class="card mb-4">
+        <div class="card-header">Tạo phòng mới</div>
+        <div class="card-body row g-2">
+            <div class="col-md-4">
+                <label class="form-label">Tên phòng</label>
+                <input class="form-control" @bind="_createName" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Best of</label>
+                <input type="number" class="form-control" @bind="_createBestOf" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Điểm / thắng</label>
+                <input type="number" class="form-control" @bind="_createPoints" />
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="priv" @bind="_createPrivate" />
+                    <label class="form-check-label" for="priv">Phòng riêng</label>
+                </div>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button class="btn btn-primary w-100" type="button" disabled="@_busy" @onclick="CreateAsync">Tạo</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>Tên</th>
+                    <th>Người chơi</th>
+                    <th>Trạng thái</th>
+                    <th>Riêng tư</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in _rooms)
+                {
+                    <tr>
+                        <td>@r.Name</td>
+                        <td>@r.CurrentPlayers / @r.MaxPlayers</td>
+                        <td>@r.Status</td>
+                        <td>@(r.IsPrivate ? "Có" : "Không")</td>
+                        <td class="text-end">
+                            @if (r.IsPrivate)
+                            {
+                                <input class="form-control form-control-sm d-inline-block" style="width:7rem" placeholder="PIN"
+                                       value="@PinFor(r.Id)" @oninput="e => SetPin(r.Id, e.Value?.ToString() ?? string.Empty)" />
+                            }
+                            <button class="btn btn-sm btn-success ms-1" type="button" disabled="@_busy" @onclick="() => JoinAsync(r)">Vào phòng</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private PortalAuthState? _session;
+    private List<RoomResponseDto> _rooms = new();
+    private readonly Dictionary<string, string> _pinByRoom = new();
+    private bool _ready;
+    private bool _busy;
+    private string? _message;
+
+    private string _createName = "Phòng mới";
+    private int _createBestOf = 3;
+    private int _createPoints = 50;
+    private bool _createPrivate;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        var s = await Auth.LoadAsync();
+        if (s == null)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        _session = s;
+        await RefreshRoomsAsync();
+        _ready = true;
+        StateHasChanged();
+    }
+
+    private async Task RefreshRoomsAsync()
+    {
+        _message = null;
+        var (ok, list, err) = await Api.GetRoomsAsync();
+        if (!ok)
+        {
+            _message = err ?? "Không tải được danh sách phòng";
+            return;
+        }
+
+        _rooms = list;
+        foreach (var r in _rooms)
+        {
+            if (!_pinByRoom.ContainsKey(r.Id))
+                _pinByRoom[r.Id] = "";
+        }
+    }
+
+    private string PinFor(string roomId) => _pinByRoom.TryGetValue(roomId, out var p) ? p : "";
+
+    private void SetPin(string roomId, string value) => _pinByRoom[roomId] = value;
+
+    private async Task CreateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_createName) || _createName.Length < 3)
+        {
+            _message = "Tên phòng ít nhất 3 ký tự.";
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var dto = new CreateRoomDto
+            {
+                Name = _createName.Trim(),
+                BestOfRounds = _createBestOf,
+                PointsPerWin = _createPoints,
+                MaxPlayers = 2,
+                IsPrivate = _createPrivate,
+                AllowSpectators = true,
+                AllowBetting = true
+            };
+            var (ok, room, err) = await Api.CreateRoomAsync(dto);
+            if (!ok || room == null)
+            {
+                _message = err ?? "Tạo phòng thất bại";
+                return;
+            }
+
+            Nav.NavigateTo($"/play/{room.Id}", forceLoad: false);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task JoinAsync(RoomResponseDto r)
+    {
+        _busy = true;
+        _message = null;
+        try
+        {
+            var pin = r.IsPrivate ? _pinByRoom.GetValueOrDefault(r.Id) : null;
+            var (ok, room, err) = await Api.JoinRoomAsync(r.Id, string.IsNullOrWhiteSpace(pin) ? null : pin);
+            if (!ok || room == null)
+            {
+                _message = err ?? "Không vào được phòng";
+                return;
+            }
+
+            var q = r.IsPrivate && !string.IsNullOrWhiteSpace(pin) ? $"?pin={Uri.EscapeDataString(pin!)}" : "";
+            Nav.NavigateTo($"/play/{room.Id}{q}", forceLoad: false);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

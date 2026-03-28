@@ -1,0 +1,72 @@
+@page "/tools/betting"
+@rendermode InteractiveServer
+@inject GameApiService Api
+@inject AuthTokenStore Auth
+
+<PageTitle>Betting API</PageTitle>
+
+<h1 class="h3">Betting API</h1>
+<p class="small">Route: <code>api/v1/Betting/...</code> · <a href="/portal">← Trung tâm</a></p>
+
+@if (_session == null)
+{
+    <p><a href="/login">Đăng nhập</a></p>
+}
+else
+{
+    <input class="form-control mb-2" style="max-width:22rem" @bind="_roomId" placeholder="roomId" />
+    <div class="d-flex flex-wrap gap-1 mb-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="PoolAsync">GET pool</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="StatAsync">GET statistics</button>
+    </div>
+    <div class="row g-2 align-items-end mb-2" style="max-width:36rem">
+        <div class="col-md-4">
+            <label class="form-label small mb-0">Amount</label>
+            <input type="number" class="form-control form-control-sm" @bind="_amt" />
+        </div>
+        <div class="col-md-5">
+            <label class="form-label small mb-0">targetPlayerId</label>
+            <input class="form-control form-control-sm" @bind="_target" />
+        </div>
+        <div class="col-md-3">
+            <button type="button" class="btn btn-sm btn-primary w-100" @onclick="BetAsync">POST place-bet</button>
+        </div>
+    </div>
+    <JsonApiResult Json="@_j" Error="@_e" />
+}
+
+@code {
+    private PortalAuthState? _session;
+    private string _roomId = "";
+    private decimal _amt = 10;
+    private string _target = "";
+    private string? _j, _e;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _session = await Auth.LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task PoolAsync()
+    {
+        _e = null; _j = null;
+        var (ok, body, err) = await Api.BettingGetPoolAsync(_roomId);
+        _j = ok ? body : null; _e = err;
+    }
+
+    private async Task StatAsync()
+    {
+        _e = null; _j = null;
+        var (ok, body, err) = await Api.BettingGetStatisticsAsync(_roomId);
+        _j = ok ? body : null; _e = err;
+    }
+
+    private async Task BetAsync()
+    {
+        _e = null; _j = null;
+        var (ok, body, err) = await Api.BettingPlaceAsync(_roomId, _amt, _target);
+        _j = ok ? body : null; _e = err;
+    }
+}

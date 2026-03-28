@@ -307,8 +307,17 @@ namespace Rock_Paper_Scissors_Online.Controllers
                     });
                 }
 
+                if (room is null)
+                {
+                    return StatusCode(500, new
+                    {
+                        success = false,
+                        message = "Join succeeded but room data is unavailable"
+                    });
+                }
+
                 var roomResponse = _mapper.Map<RoomResponseDto>(room);
-                Console.WriteLine($"[ROOM JOIN] User {username} joined room '{room?.Name}' (ID: {room?.Id})");
+                Console.WriteLine($"[ROOM JOIN] User {username} joined room '{room.Name}' (ID: {room.Id})");
 
                 // Send PlayerJoined event to clients in the specific room only
                 await _gameHubContext.Clients.Group(room.Id).SendAsync("PlayerJoined", new
@@ -401,8 +410,17 @@ namespace Rock_Paper_Scissors_Online.Controllers
 
                         if (spectatorSuccess)
                         {
+                            if (spectatorRoom is null)
+                            {
+                                return StatusCode(500, new
+                                {
+                                    success = false,
+                                    message = "Spectator join succeeded but room data is unavailable"
+                                });
+                            }
+
                             var roomResponse = _mapper.Map<RoomResponseDto>(spectatorRoom);
-                            Console.WriteLine($"[ROOM JOIN BY PIN] User {username} joined room '{spectatorRoom?.Name}' as spectator (ID: {spectatorRoom?.Id})");
+                            Console.WriteLine($"[ROOM JOIN BY PIN] User {username} joined room '{spectatorRoom.Name}' as spectator (ID: {spectatorRoom.Id})");
 
                             // Send SpectatorJoined event to clients in the specific room only
                             await _gameHubContext.Clients.Group(spectatorRoom.Id).SendAsync("SpectatorJoined", new
@@ -457,8 +475,17 @@ namespace Rock_Paper_Scissors_Online.Controllers
                         });
                     }
 
+                    if (room is null)
+                    {
+                        return StatusCode(500, new
+                        {
+                            success = false,
+                            message = "Join succeeded but room data is unavailable"
+                        });
+                    }
+
                     var playerRoomResponse = _mapper.Map<RoomResponseDto>(room);
-                    Console.WriteLine($"[ROOM JOIN BY PIN] User {username} joined room '{room?.Name}' as player (ID: {room?.Id})");
+                    Console.WriteLine($"[ROOM JOIN BY PIN] User {username} joined room '{room.Name}' as player (ID: {room.Id})");
 
                     // Send PlayerJoined event to clients in the specific room only
                     await _gameHubContext.Clients.Group(room.Id).SendAsync("PlayerJoined", new

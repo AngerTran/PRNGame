@@ -1,0 +1,94 @@
+@page "/leaderboard"
+@rendermode InteractiveServer
+@inject GameApiService Api
+@inject AuthTokenStore Auth
+
+<PageTitle>Bảng xếp hạng</PageTitle>
+
+<h1 class="h3">Bảng xếp hạng</h1>
+<p class="small"><a href="/portal">← Trung tâm</a></p>
+
+@if (!_ready)
+{
+    <p>Đang tải…</p>
+}
+else
+{
+    <div class="mb-3 d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="LoadAllAsync">Tải lại</button>
+        @if (_session != null)
+        {
+            <button type="button" class="btn btn-sm btn-primary" @onclick="LoadMyRankAsync">Hạng của tôi (API)</button>
+        }
+    </div>
+
+    <JsonApiResult Json="@_rankJson" Error="@_rankErr" />
+
+    <h2 class="h5 mt-4">Top (api/v1/leaderboard/top)</h2>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead><tr><th>#</th><th>User</th><th>Điểm</th><th>Thắng</th><th>Trận</th></tr></thead>
+            <tbody>
+                @foreach (var row in _top ?? new List<LeaderBoardDto>())
+                {
+                    <tr>
+                        <td>@row.Rank</td>
+                        <td>@row.Username</td>
+                        <td>@row.Points</td>
+                        <td>@row.gamesWon</td>
+                        <td>@row.gamesPlayed</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <h2 class="h5 mt-4">Toàn bộ (api/v1/leaderboard)</h2>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead><tr><th>#</th><th>User</th><th>Điểm</th></tr></thead>
+            <tbody>
+                @foreach (var row in _full ?? new List<LeaderBoardDto>())
+                {
+                    <tr><td>@row.Rank</td><td>@row.Username</td><td>@row.Points</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private bool _ready;
+    private PortalAuthState? _session;
+    private List<LeaderBoardDto>? _top;
+    private List<LeaderBoardDto>? _full;
+    private string? _rankJson;
+    private string? _rankErr;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _session = await Auth.LoadAsync();
+        await LoadAllAsync();
+        _ready = true;
+        StateHasChanged();
+    }
+
+    private async Task LoadAllAsync()
+    {
+        var (ok1, top, _) = await Api.GetLeaderboardTopAsync(10);
+        var (ok2, full, _) = await Api.GetLeaderboardAsync();
+        _top = top;
+        _full = full;
+    }
+
+    private async Task LoadMyRankAsync()
+    {
+        if (_session == null) return;
+        _rankErr = null;
+        _rankJson = null;
+        var (ok, body, err) = await Api.GetMyLeaderboardRankAsync(_session.UserId);
+        if (!ok) _rankErr = err;
+        else _rankJson = body;
+    }
+}

@@ -1382,12 +1382,12 @@ namespace Rock_Paper_Scissors_Online.Hubs
                 // Check if both players have made their moves
                 if (GameRoom.Player1!?.CurrentChoice != null && GameRoom.Player2!?.CurrentChoice != null)
                 {
-                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Both players have submitted moves");
+                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Both players have submitted moves — processing round");
+                    await ProcessRound(roomId, GameRoom);
                 }
                 else
                 {
                     Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Waiting for opponent to submit move");
-                    // Notify that player has made their move
                     await Clients.Group(roomId).SendAsync("MoveSubmitted", new
                     {
                         success = true,

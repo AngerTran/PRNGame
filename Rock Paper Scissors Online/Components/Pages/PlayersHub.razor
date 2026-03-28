@@ -1,0 +1,208 @@
+@page "/players"
+@rendermode InteractiveServer
+@inject GameApiService Api
+@inject AuthTokenStore Auth
+
+<PageTitle>Người chơi</PageTitle>
+
+<h1 class="h3">Người chơi &amp; tìm kiếm</h1>
+<p class="small"><a href="/portal">← Trung tâm</a></p>
+
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><button class="nav-link @TabClass(0)" type="button" @onclick='() => _tab = 0'>Online (player-stats)</button></li>
+    <li class="nav-item"><button class="nav-link @TabClass(1)" type="button" @onclick='() => _tab = 1'>Tìm (player-stats)</button></li>
+    <li class="nav-item"><button class="nav-link @TabClass(2)" type="button" @onclick='() => _tab = 2'>Chi tiết GUID</button></li>
+    <li class="nav-item"><button class="nav-link @TabClass(3)" type="button" @onclick='() => _tab = 3'>Legacy /players</button></li>
+    <li class="nav-item"><button class="nav-link @TabClass(4)" type="button" @onclick='() => _tab = 4'>Mời &amp; lời mời</button></li>
+</ul>
+
+@if (_tab == 0)
+{
+    <button class="btn btn-sm btn-primary mb-2" type="button" @onclick="LoadOnlineStatsAsync">GET api/v1/player-stats/Online</button>
+    <div class="table-responsive small">
+        <table class="table table-sm">
+            <thead><tr><th>User</th><th>Điểm</th><th>Trận</th></tr></thead>
+            <tbody>
+                @foreach (var p in _onlineStats?.Players ?? new List<OnlinePlayerDto>())
+                {
+                    <tr><td>@p.Username</td><td>@p.Points</td><td>@p.GamesPlayed</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+    <JsonApiResult Json="@_rawOnline" Error="@_errOnline" />
+}
+
+@if (_tab == 1)
+{
+    <div class="input-group mb-2" style="max-width:28rem">
+        <input class="form-control" @bind="_searchQ" placeholder="query" />
+        <button class="btn btn-outline-primary" type="button" @onclick="SearchStatsAsync">Tìm</button>
+    </div>
+    <div class="table-responsive small">
+        <table class="table table-sm">
+            <thead><tr><th>User</th><th>Điểm</th></tr></thead>
+            <tbody>
+                @foreach (var p in _searchStats?.Players ?? new List<OnlinePlayerDto>())
+                {
+                    <tr><td>@p.Username</td><td>@p.Points</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (_tab == 2)
+{
+    <div class="input-group mb-2" style="max-width:32rem">
+        <input class="form-control" @bind="_playerGuid" placeholder="Guid người chơi" />
+        <button class="btn btn-outline-primary" type="button" @onclick="LoadDetailStatsAsync">GET .../stats</button>
+    </div>
+    @if (_detail != null)
+    {
+        <dl class="row small">
+            <dt class="col-sm-3">Username</dt><dd class="col-sm-9">@_detail.Username</dd>
+            <dt class="col-sm-3">Điểm</dt><dd class="col-sm-9">@_detail.Points</dd>
+            <dt class="col-sm-3">W/L</dt><dd class="col-sm-9">@_detail.GamesWon / @_detail.GamesLost</dd>
+            <dt class="col-sm-3">Win rate</dt><dd class="col-sm-9">@_detail.WinRate.ToString("F1")%</dd>
+        </dl>
+    }
+    <JsonApiResult Json="@_rawDetail" Error="@_errDetail" />
+}
+
+@if (_tab == 3)
+{
+    <div class="d-flex flex-wrap gap-2 mb-2">
+        <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="LegacyOnlineAsync">GET /players/Online</button>
+    </div>
+    <div class="input-group mb-2" style="max-width:28rem">
+        <input class="form-control" @bind="_legacyName" placeholder="Name" />
+        <button class="btn btn-outline-secondary" type="button" @onclick="LegacySearchAsync">Search</button>
+    </div>
+    <div class="input-group mb-2" style="max-width:28rem">
+        <input class="form-control" @bind="_legacyId" placeholder="playerId stats" />
+        <button class="btn btn-outline-secondary" type="button" @onclick="LegacyStatsAsync">Stats</button>
+    </div>
+    <JsonApiResult Json="@_legacyJson" Error="@_legacyErr" />
+}
+
+@if (_tab == 4)
+{
+    @if (_session == null)
+    {
+        <p class="text-muted">Đăng nhập để dùng invite / invitations.</p>
+    }
+    else
+    {
+        <div class="mb-3">
+            <label class="form-label">POST invite — playerId đích</label>
+            <div class="input-group" style="max-width:36rem">
+                <input class="form-control" @bind="_inviteTarget" />
+                <input class="form-control" @bind="_inviteMsg" placeholder="message" />
+                <button class="btn btn-primary" type="button" @onclick="DoInviteAsync">Gửi</button>
+            </div>
+        </div>
+        <button class="btn btn-sm btn-outline-primary mb-2" type="button" @onclick="LoadInvitesAsync">GET invitations (tôi)</button>
+        <JsonApiResult Json="@_invJson" Error="@_invErr" />
+    }
+}
+
+@code {
+    private int _tab;
+    private PortalAuthState? _session;
+    private OnlinePlayersResponse? _onlineStats;
+    private string? _rawOnline;
+    private string? _errOnline;
+    private string _searchQ = "";
+    private OnlinePlayersResponse? _searchStats;
+    private string _playerGuid = "";
+    private DetailedPlayerStatsDto? _detail;
+    private string? _rawDetail;
+    private string? _errDetail;
+    private string? _legacyJson;
+    private string? _legacyErr;
+    private string _legacyName = "";
+    private string _legacyId = "";
+    private string _inviteTarget = "";
+    private string _inviteMsg = "Want to play a quick match?";
+    private string? _invJson;
+    private string? _invErr;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _session = await Auth.LoadAsync();
+        StateHasChanged();
+    }
+
+    private string TabClass(int i) => _tab == i ? "active" : "";
+
+    private async Task LoadOnlineStatsAsync()
+    {
+        _errOnline = null;
+        _rawOnline = null;
+        var (ok, data, err) = await Api.GetOnlinePlayersStatsAsync();
+        _onlineStats = data;
+        if (!ok) _errOnline = err;
+    }
+
+    private async Task SearchStatsAsync()
+    {
+        var (ok, data, _) = await Api.SearchPlayersStatsAsync(_searchQ);
+        _searchStats = data;
+    }
+
+    private async Task LoadDetailStatsAsync()
+    {
+        _errDetail = null;
+        _rawDetail = null;
+        _detail = null;
+        if (!Guid.TryParse(_playerGuid, out var g))
+        {
+            _errDetail = "GUID không hợp lệ";
+            return;
+        }
+        var (ok, d, err) = await Api.GetDetailedPlayerStatsAsync(g);
+        _detail = d;
+        if (!ok) _errDetail = err;
+    }
+
+    private async Task LegacyOnlineAsync()
+    {
+        var (ok, body, err) = await Api.PlayersLegacyOnlineAsync();
+        _legacyJson = ok ? body : null;
+        _legacyErr = err;
+    }
+
+    private async Task LegacySearchAsync()
+    {
+        var (ok, body, err) = await Api.PlayersLegacySearchAsync(_legacyName);
+        _legacyJson = ok ? body : null;
+        _legacyErr = err;
+    }
+
+    private async Task LegacyStatsAsync()
+    {
+        var (ok, body, err) = await Api.PlayersLegacyStatsAsync(_legacyId);
+        _legacyJson = ok ? body : null;
+        _legacyErr = err;
+    }
+
+    private async Task DoInviteAsync()
+    {
+        _invErr = null;
+        _invJson = null;
+        var (ok, body, err) = await Api.PlayersInviteAsync(_inviteTarget, _inviteMsg);
+        _invJson = ok ? body : null;
+        _invErr = err;
+    }
+
+    private async Task LoadInvitesAsync()
+    {
+        if (_session == null) return;
+        _invErr = null;
+        var (ok, body, err) = await Api.PlayersGetInvitationsAsync(_session.UserId.ToString());
+        _invJson = ok ? body : null;
+        _invErr = err;
+    }
+}

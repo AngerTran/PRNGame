@@ -1,0 +1,53 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Trang chủ";
+}
+
+<div class="rps-razor-hero p-4 p-lg-5 mb-4 bg-body-secondary rounded-3 text-center text-lg-start">
+    <h1 class="display-6 fw-bold rps-hero-title">Rock Paper Scissors Online</h1>
+    <p class="col-lg-9 fs-5 mx-auto mx-lg-0 mb-4">
+        Chơi kéo–búa–bao trực tuyến hai người: tạo phòng, đồng bộ lượt qua SignalR, xem lịch sử trận.
+        Phần chơi dùng <strong>Blazor Server</strong>; trang này là <strong>Razor Pages</strong> giới thiệu nhanh.
+    </p>
+    <div class="rps-razor-hero-cta justify-content-center justify-content-lg-start">
+        <a class="btn btn-primary btn-lg" href="/lobby"><i class="bi bi-controller me-2"></i>Sảnh game</a>
+        <a class="btn btn-outline-primary btn-lg" asp-page="/HowToPlay"><i class="bi bi-book me-2"></i>Hướng dẫn</a>
+    </div>
+    <p class="small text-muted mt-3 mb-0">
+        Đã có tài khoản? <a href="/login">Đăng nhập</a> · Chưa có? <a href="/register">Đăng ký</a>
+    </p>
+</div>
+
+<div class="row g-3 rps-razor-features">
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex flex-column">
+                <h2 class="h5 card-title">Tài khoản</h2>
+                <p class="card-text small flex-grow-1">Đăng ký và đăng nhập; phiên Blazor lưu token an toàn (Protected Local Storage).</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="/register" class="btn btn-sm btn-outline-primary">Đăng ký</a>
+                    <a href="/login" class="btn btn-sm btn-outline-secondary">Đăng nhập</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex flex-column">
+                <h2 class="h5 card-title">Phòng chơi</h2>
+                <p class="card-text small flex-grow-1">Phòng công khai hoặc riêng (PIN), mời đối thủ vào cùng bàn.</p>
+                <a href="/lobby" class="btn btn-sm btn-outline-primary align-self-start">Vào sảnh</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex flex-column">
+                <h2 class="h5 card-title">Realtime</h2>
+                <p class="card-text small flex-grow-1">SignalR đồng bộ sẵn sàng, nước đi và kết quả từng ván.</p>
+                <a href="/history" class="btn btn-sm btn-outline-primary align-self-start">Lịch sử trận</a>
+            </div>
+        </div>
+    </div>
+</div>

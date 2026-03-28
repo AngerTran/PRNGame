@@ -1,0 +1,15 @@
+@if (!string.IsNullOrEmpty(Error))
+{
+    <div class="alert alert-danger small mb-2">@Error</div>
+}
+@if (!string.IsNullOrEmpty(Json))
+{
+    <pre class="rps-json-panel p-3 small mb-0" style="max-height:420px;overflow:auto;white-space:pre-wrap">@Pretty</pre>
+}
+
+@code {
+    [Parameter] public string? Json { get; set; }
+    [Parameter] public string? Error { get; set; }
+
+    private string Pretty => string.IsNullOrEmpty(Json) ? "" : GameApiService.PrettyJson(Json);
+}

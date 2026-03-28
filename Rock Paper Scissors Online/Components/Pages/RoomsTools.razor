@@ -1,0 +1,97 @@
+@page "/tools/rooms"
+@rendermode InteractiveServer
+@inject GameApiService Api
+@inject AuthTokenStore Auth
+@inject NavigationManager Nav
+
+<PageTitle>API phòng</PageTitle>
+
+<h1 class="h3">Rooms API</h1>
+<p class="small"><a href="/portal">← Trung tâm</a></p>
+
+@if (_session == null)
+{
+    <p><a href="/login">Đăng nhập</a></p>
+}
+else
+{
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Join by PIN</div>
+                <div class="card-body">
+                    <input class="form-control mb-2" @bind="_pin" placeholder="PIN" />
+                    <button type="button" class="btn btn-primary btn-sm" @onclick="JoinPinAsync">POST join-by-pin</button>
+                    <JsonApiResult Json="@_j1" Error="@_e1" />
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">Spectator / Leave / Delete</div>
+                <div class="card-body small">
+                    <input class="form-control mb-1" @bind="_roomId" placeholder="roomId" />
+                    <input class="form-control mb-2" @bind="_pin2" placeholder="PIN (tuỳ chọn spectator)" />
+                    <div class="d-flex flex-wrap gap-1">
+                        <button type="button" class="btn btn-outline-primary btn-sm" @onclick="SpecAsync">join-as-spectator</button>
+                        <button type="button" class="btn btn-outline-warning btn-sm" @onclick="LeaveAsync">leave</button>
+                        <button type="button" class="btn btn-outline-danger btn-sm" @onclick="DelAsync">delete</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="DetailsAsync">GET details</button>
+                    </div>
+                    <JsonApiResult Json="@_j2" Error="@_e2" />
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private PortalAuthState? _session;
+    private string _pin = "";
+    private string _roomId = "";
+    private string _pin2 = "";
+    private string? _j1, _e1, _j2, _e2;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _session = await Auth.LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task JoinPinAsync()
+    {
+        _e1 = null; _j1 = null;
+        var (ok, room, err) = await Api.JoinRoomByPinAsync(_pin.Trim());
+        _j1 = ok && room != null ? System.Text.Json.JsonSerializer.Serialize(room) : null;
+        _e1 = err;
+    }
+
+    private async Task SpecAsync()
+    {
+        _e2 = null; _j2 = null;
+        var (ok, body, err) = await Api.JoinAsSpectatorAsync(_roomId, string.IsNullOrWhiteSpace(_pin2) ? null : _pin2);
+        _j2 = ok ? body : null; _e2 = err;
+    }
+
+    private async Task LeaveAsync()
+    {
+        _e2 = null; _j2 = null;
+        var (ok, body, err) = await Api.LeaveRoomAsync(_roomId);
+        _j2 = ok ? body : null; _e2 = err;
+    }
+
+    private async Task DelAsync()
+    {
+        _e2 = null; _j2 = null;
+        var (ok, body, err) = await Api.DeleteRoomAsync(_roomId);
+        _j2 = ok ? body : null; _e2 = err;
+    }
+
+    private async Task DetailsAsync()
+    {
+        _e2 = null; _j2 = null;
+        var (ok, body, err) = await Api.GetRoomDetailsRawAsync(_roomId);
+        _j2 = ok ? body : null; _e2 = err;
+    }
+}

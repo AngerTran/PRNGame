@@ -1,0 +1,85 @@
+@page "/tools/room-management"
+@rendermode InteractiveServer
+@inject GameApiService Api
+@inject AuthTokenStore Auth
+
+<PageTitle>Room management</PageTitle>
+
+<h1 class="h3">Room management API</h1>
+<p class="small text-muted">[Authorize] · <a href="/portal">← Trung tâm</a></p>
+
+@if (_session == null)
+{
+    <p><a href="/login">Đăng nhập</a></p>
+}
+else
+{
+    <div class="d-flex flex-wrap gap-1 mb-3">
+        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="@(() => Go(() => Api.RoomMgmtStatsAsync()))">stats</button>
+        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="@(() => Go(() => Api.RoomMgmtCleanupInactiveAsync()))">cleanup inactive</button>
+        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="@(() => Go(() => Api.RoomMgmtLowActivityAsync(_min)))">low-activity</button>
+    </div>
+    <div class="row g-2 mb-2">
+        <div class="col-auto">
+            <input type="number" class="form-control form-control-sm" style="width:5rem" @bind="_min" />
+            <span class="small text-muted">phút (low-activity)</span>
+        </div>
+    </div>
+    <div class="input-group mb-2" style="max-width:28rem">
+        <span class="input-group-text">by-status</span>
+        <input class="form-control" @bind="_status" placeholder="Waiting, Playing, Finished…" />
+        <button type="button" class="btn btn-outline-secondary" @onclick="@(() => Go(() => Api.RoomMgmtByStatusAsync(_status)))">GET</button>
+    </div>
+    <div class="input-group mb-2" style="max-width:28rem">
+        <span class="input-group-text">by-creator</span>
+        <input class="form-control" @bind="_creator" placeholder="creatorId" />
+        <button type="button" class="btn btn-outline-secondary" @onclick="@(() => Go(() => Api.RoomMgmtByCreatorAsync(_creator)))">GET</button>
+    </div>
+    <div class="input-group mb-2" style="max-width:32rem">
+        <span class="input-group-text">force-close</span>
+        <input class="form-control" @bind="_roomId" placeholder="roomId" />
+        <input class="form-control" @bind="_reason" placeholder="reason" />
+        <button type="button" class="btn btn-warning" @onclick="@(() => Go(() => Api.RoomMgmtForceCloseAsync(_roomId, _reason)))">POST</button>
+    </div>
+    <div class="input-group mb-2" style="max-width:32rem">
+        <span class="input-group-text">room health</span>
+        <input class="form-control" @bind="_roomId2" placeholder="roomId" />
+        <button type="button" class="btn btn-outline-info" @onclick="@(() => Go(() => Api.RoomMgmtRoomHealthAsync(_roomId2)))">GET</button>
+    </div>
+    <div class="input-group mb-2" style="max-width:36rem">
+        <span class="input-group-text">transfer</span>
+        <input class="form-control" @bind="_roomId3" placeholder="roomId" />
+        <input class="form-control" @bind="_toUser" placeholder="toUserId" />
+        <button type="button" class="btn btn-danger" @onclick="@(() => Go(() => Api.RoomMgmtTransferOwnershipAsync(_roomId3, _toUser)))">POST</button>
+    </div>
+
+    <JsonApiResult Json="@_j" Error="@_e" />
+}
+
+@code {
+    private PortalAuthState? _session;
+    private int _min = 30;
+    private string _status = "Waiting";
+    private string _creator = "";
+    private string _roomId = "";
+    private string _reason = "admin";
+    private string _roomId2 = "";
+    private string _roomId3 = "";
+    private string _toUser = "";
+    private string? _j, _e;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _session = await Auth.LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task Go(Func<Task<(bool Ok, string Body, string? Error)>> fn)
+    {
+        _e = null; _j = null;
+        var (ok, body, err) = await fn();
+        _j = ok ? body : null;
+        _e = err;
+    }
+}

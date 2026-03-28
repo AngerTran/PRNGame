@@ -1,0 +1,107 @@
+@page "/me"
+@rendermode InteractiveServer
+@inject GameApiService Api
+@inject AuthTokenStore Auth
+@inject NavigationManager Nav
+
+<PageTitle>Hồ sơ</PageTitle>
+
+@if (!_ready)
+{
+    <p>Đang tải…</p>
+}
+else if (_session == null)
+{
+    <p><a href="/login">Đăng nhập</a></p>
+}
+else
+{
+    <h1 class="h3">Hồ sơ (Profile API)</h1>
+    <p class="small"><a href="/portal">← Trung tâm</a></p>
+
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item"><button type="button" class="nav-link @C(0)" @onclick='() => _t=0'>Tổng quan</button></li>
+        <li class="nav-item"><button type="button" class="nav-link @C(1)" @onclick='() => _t=1'>GET .../stats (raw)</button></li>
+        <li class="nav-item"><button type="button" class="nav-link @C(2)" @onclick='() => _t=2'>GET .../history</button></li>
+    </ul>
+
+    @if (_t == 0 && _profile != null)
+    {
+        <div class="card mb-3">
+            <div class="card-body">
+                <h2 class="h5">@_profile.User.Username</h2>
+                <p class="small text-muted mb-1">@_profile.User.Email</p>
+                <p>Điểm: @_profile.User.Points · Trận: @_profile.Stats.GamesPlayed (thắng @_profile.Stats.GamesWon)</p>
+            </div>
+        </div>
+    }
+
+    @if (_t == 1)
+    {
+        <button type="button" class="btn btn-sm btn-primary mb-2" @onclick="LoadStatsRawAsync">Tải api/v1/profile/@(_session.UserId)/stats</button>
+        <JsonApiResult Json="@_statsRaw" Error="@_statsErr" />
+    }
+
+    @if (_t == 2)
+    {
+        <button type="button" class="btn btn-sm btn-primary mb-2" @onclick="LoadHistoryAsync">Tải history</button>
+        <ul class="list-group small">
+            @foreach (var g in _hist?.RecentGames ?? new List<GameHistoryDto>())
+            {
+                <li class="list-group-item">@g.Opponent — @g.Result (@g.Timestamp.ToLocalTime():g)</li>
+            }
+        </ul>
+        <JsonApiResult Json="@_histRaw" Error="@_histErr" />
+    }
+}
+
+@code {
+    private bool _ready;
+    private int _t;
+    private PortalAuthState? _session;
+    private CompleteProfileDto? _profile;
+    private string? _statsRaw;
+    private string? _statsErr;
+    private GameHistoryResponseDto? _hist;
+    private string? _histRaw;
+    private string? _histErr;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _session = await Auth.LoadAsync();
+        if (_session == null)
+        {
+            _ready = true;
+            StateHasChanged();
+            return;
+        }
+        var (ok, p, _) = await Api.GetCompleteProfileAsync(_session.UserId);
+        _profile = p;
+        _ready = true;
+        StateHasChanged();
+    }
+
+    private string C(int x) => _t == x ? "active" : "";
+
+    private async Task LoadStatsRawAsync()
+    {
+        if (_session == null) return;
+        _statsErr = null;
+        var (ok, body, err) = await Api.GetProfileStatsRawAsync(_session.UserId);
+        _statsRaw = ok ? body : null;
+        _statsErr = err;
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        if (_session == null) return;
+        _histErr = null;
+        _histRaw = null;
+        var (ok, h, err) = await Api.GetProfileHistoryAsync(_session.UserId, 30, 0);
+        _hist = h;
+        if (!ok) _histErr = err;
+        if (ok && h != null)
+            _histRaw = System.Text.Json.JsonSerializer.Serialize(h, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+    }
+}

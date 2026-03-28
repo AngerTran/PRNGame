@@ -1,0 +1,84 @@
+@page "/account"
+@rendermode InteractiveServer
+@inject GameApiService Api
+@inject AuthTokenStore Auth
+@inject NavigationManager Nav
+
+<PageTitle>Tài khoản</PageTitle>
+
+<h1 class="h3">Tài khoản &amp; token</h1>
+<p class="small"><a href="/portal">← Trung tâm</a></p>
+
+@if (_session == null)
+{
+    <p><a href="/login">Đăng nhập</a></p>
+}
+else
+{
+    <div class="card mb-3">
+        <div class="card-body small">
+            <p><strong>User:</strong> @_session.Username · <strong>Id:</strong> @_session.UserId</p>
+            <div class="d-flex flex-wrap gap-2">
+                <button type="button" class="btn btn-sm btn-primary" @onclick="RefreshTokAsync">POST refresh-token</button>
+                <button type="button" class="btn btn-sm btn-outline-primary" @onclick="LoadProfAsync">GET user/profile</button>
+                <button type="button" class="btn btn-sm btn-outline-danger" @onclick="LogoutAsync">Đăng xuất</button>
+            </div>
+            @if (!string.IsNullOrEmpty(_tokMsg))
+            {
+                <p class="text-success mt-2 mb-0">@_tokMsg</p>
+            }
+            @if (!string.IsNullOrEmpty(_tokErr))
+            {
+                <p class="text-danger mt-2 mb-0">@_tokErr</p>
+            }
+        </div>
+    </div>
+
+    @if (_user != null)
+    {
+        <div class="card mb-3">
+            <div class="card-header">Profile (user/profile)</div>
+            <div class="card-body small">
+                <dl class="row mb-0">
+                    <dt class="col-sm-3">Email</dt><dd class="col-sm-9">@_user.Email</dd>
+                    <dt class="col-sm-3">Điểm</dt><dd class="col-sm-9">@_user.Points</dd>
+                    <dt class="col-sm-3">Role</dt><dd class="col-sm-9">@_user.Role</dd>
+                </dl>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private PortalAuthState? _session;
+    private UserDto? _user;
+    private string? _tokMsg;
+    private string? _tokErr;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _session = await Auth.LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task RefreshTokAsync()
+    {
+        _tokMsg = _tokErr = null;
+        var (ok, err) = await Api.RefreshTokenAsync();
+        if (ok) _tokMsg = "Token đã làm mới.";
+        else _tokErr = err;
+    }
+
+    private async Task LoadProfAsync()
+    {
+        var (ok, u, _) = await Api.GetUserProfileAsync();
+        if (ok) _user = u;
+    }
+
+    private async Task LogoutAsync()
+    {
+        await Api.LogoutAsync();
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+}

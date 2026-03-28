@@ -1,0 +1,267 @@
+@page "/play/{RoomId}"
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@using System.Text.Json
+@inject GameApiService Api
+@inject AuthTokenStore Auth
+@inject NavigationManager Nav
+
+<PageTitle>Phòng @RoomId</PageTitle>
+
+@if (!_ready)
+{
+    <p>Đang kết nối…</p>
+}
+else
+{
+    <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+        <h1 class="h4 mb-0">@(_room?.Name ?? "Phòng")</h1>
+        <a class="btn btn-outline-secondary btn-sm" href="/lobby">Rời / Sảnh</a>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_hubError))
+    {
+        <div class="alert alert-danger">@_hubError</div>
+    }
+    @if (!string.IsNullOrEmpty(_toast))
+    {
+        <div class="alert alert-info py-2">@_toast</div>
+    }
+
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">Trạng thái</div>
+                <div class="card-body small">
+                    <div><strong>Giai đoạn:</strong> @_phase</div>
+                    <div><strong>Bạn:</strong> @_session!.Username</div>
+                    @if (_room != null)
+                    {
+                        <div><strong>Chủ phòng:</strong> @_room.CreatedByUsername</div>
+                        <div><strong>Điểm:</strong> P1 @ScoreP1 — P2 @ScoreP2</div>
+                        <div><strong>Người chơi 1:</strong> @Label(_room.Player1) @Ready(_room.Player1)</div>
+                        <div><strong>Người chơi 2:</strong> @Label(_room.Player2) @Ready(_room.Player2)</div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">Hành động</div>
+                <div class="card-body d-flex flex-wrap gap-2">
+                    <button class="btn btn-outline-primary btn-sm" type="button" disabled="@_hubBusy" @onclick="ReadyAsync">Sẵn sàng</button>
+                    @if (_isCreator)
+                    {
+                        <button class="btn btn-primary btn-sm" type="button" disabled="@_hubBusy" @onclick="StartGameAsync">Bắt đầu game</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mt-3">
+        <div class="card-header">Nước đi (rock / paper / scissors)</div>
+        <div class="card-body d-flex flex-wrap gap-2">
+            <button class="btn btn-secondary" type="button" disabled="@_hubBusy" @onclick='() => MoveAsync("rock")'>🪨 Búa đá</button>
+            <button class="btn btn-secondary" type="button" disabled="@_hubBusy" @onclick='() => MoveAsync("paper")'>📄 Bao</button>
+            <button class="btn btn-secondary" type="button" disabled="@_hubBusy" @onclick='() => MoveAsync("scissors")'>✂️ Kéo</button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_lastRound))
+    {
+        <div class="alert alert-success mt-3 mb-0"><strong>Ván gần nhất:</strong> @_lastRound</div>
+    }
+}
+
+@code {
+    [Parameter] public string RoomId { get; set; } = "";
+
+    [SupplyParameterFromQuery] public string? Pin { get; set; }
+
+    private PortalAuthState? _session;
+    private RoomResponseDto? _room;
+    private HubConnection? _hub;
+    private bool _ready;
+    private bool _hubBusy;
+    private bool _isCreator;
+    private string _phase = "—";
+    private string? _hubError;
+    private string? _toast;
+    private string? _lastRound;
+
+    private int ScoreP1 => _room?.PlayerScores?.GetValueOrDefault(_room.Player1?.UserId ?? "", 0) ?? 0;
+    private int ScoreP2 => _room?.PlayerScores?.GetValueOrDefault(_room.Player2?.UserId ?? "", 0) ?? 0;
+
+    private static string Label(PlayerDto? p) => p == null ? "—" : p.Username;
+    private static string Ready(PlayerDto? p) => p == null ? "" : p.IsReady ? " ✓" : "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        var s = await Auth.LoadAsync();
+        if (s == null)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        _session = s;
+
+        var (ok, room, err) = await Api.GetRoomAsync(RoomId);
+        if (!ok || room == null)
+        {
+            _hubError = err ?? "Không tìm thấy phòng";
+            _ready = true;
+            StateHasChanged();
+            return;
+        }
+
+        _room = room;
+        _isCreator = string.Equals(room.CreatedBy, s.UserId.ToString(), StringComparison.OrdinalIgnoreCase);
+
+        try
+        {
+            var hubUri = Nav.ToAbsoluteUri($"/gameHub?access_token={Uri.EscapeDataString(s.AccessToken)}");
+            _hub = new HubConnectionBuilder()
+                .WithUrl(hubUri)
+                .WithAutomaticReconnect()
+                .Build();
+
+            _hub.On<string>("Error", msg =>
+            {
+                _hubError = msg;
+                return InvokeAsync(StateHasChanged);
+            });
+
+            _hub.On<JsonElement>("PhaseChanged", payload =>
+            {
+                if (TryPhase(payload, out var ph))
+                    _phase = ph;
+                return InvokeAsync(StateHasChanged);
+            });
+
+            _hub.On<JsonElement>("RoundCompleted", payload =>
+            {
+                if (TryRoundSummary(payload, out var line))
+                    _lastRound = line;
+                return RefreshRoomUiAsync();
+            });
+
+            _hub.On<JsonElement>("MoveSubmitted", _ => RefreshRoomUiAsync());
+            _hub.On<JsonElement>("NextRound", _ => RefreshRoomUiAsync());
+            _hub.On<JsonElement>("PlayerReadyChanged", _ => RefreshRoomUiAsync());
+            _hub.On<JsonElement>("BothPlayersReady", _ =>
+            {
+                _toast = "Cả hai đã sẵn sàng — chủ phòng có thể bắt đầu.";
+                return RefreshRoomUiAsync();
+            });
+            _hub.On<JsonElement>("GameEnded", _ =>
+            {
+                _toast = "Trận đấu kết thúc.";
+                return RefreshRoomUiAsync();
+            });
+
+            await _hub.StartAsync();
+
+            var joinDto = new JoinRoomDto { RoomId = RoomId, PinCode = Pin ?? "" };
+            await _hub.InvokeAsync("JoinRoom", joinDto);
+        }
+        catch (Exception ex)
+        {
+            _hubError = ex.Message;
+        }
+
+        _ready = true;
+        StateHasChanged();
+    }
+
+    private async Task RefreshRoomUiAsync()
+    {
+        var (ok, room, _) = await Api.GetRoomAsync(RoomId);
+        if (ok && room != null)
+            _room = room;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static bool TryPhase(JsonElement root, out string phase)
+    {
+        phase = "—";
+        if (!root.TryGetProperty("data", out var d))
+            return false;
+        if (!d.TryGetProperty("phase", out var p))
+            return false;
+        phase = p.GetString() ?? phase;
+        return true;
+    }
+
+    private static bool TryRoundSummary(JsonElement root, out string line)
+    {
+        line = "";
+        if (!root.TryGetProperty("data", out var d))
+            return false;
+        var p1 = d.TryGetProperty("player1Move", out var a) ? a.GetString() : null;
+        var p2 = d.TryGetProperty("player2Move", out var b) ? b.GetString() : null;
+        var u1 = d.TryGetProperty("player1Username", out var x) ? x.GetString() : "?";
+        var u2 = d.TryGetProperty("player2Username", out var y) ? y.GetString() : "?";
+        var res = d.TryGetProperty("result", out var r) ? r.GetString() : "";
+        line = $"{u1} ({p1}) vs {u2} ({p2}) → {res}";
+        return true;
+    }
+
+    private async Task ReadyAsync()
+    {
+        if (_hub == null)
+            return;
+        _hubBusy = true;
+        try
+        {
+            await _hub.InvokeAsync("SetPlayerReady", RoomId, true);
+            await RefreshRoomUiAsync();
+        }
+        finally
+        {
+            _hubBusy = false;
+        }
+    }
+
+    private async Task StartGameAsync()
+    {
+        if (_hub == null)
+            return;
+        _hubBusy = true;
+        try
+        {
+            await _hub.InvokeAsync("StartGame", RoomId);
+            await RefreshRoomUiAsync();
+        }
+        finally
+        {
+            _hubBusy = false;
+        }
+    }
+
+    private async Task MoveAsync(string move)
+    {
+        if (_hub == null)
+            return;
+        _hubBusy = true;
+        try
+        {
+            await _hub.InvokeAsync("SubmitMove", RoomId, move);
+            await RefreshRoomUiAsync();
+        }
+        finally
+        {
+            _hubBusy = false;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hub != null)
+            await _hub.DisposeAsync();
+    }
+}

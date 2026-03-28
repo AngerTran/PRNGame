@@ -23,15 +23,18 @@ namespace Rock_Paper_Scissors_Online.Controllers
             return Ok(response);
         }
 
-        [HttpGet("/api/v1/leaderboard/player/:playerId/rank")]
+        [HttpGet("/api/v1/leaderboard/player/{playerId:guid}/rank")]
         [Authorize]
-        public async Task<ActionResult<IEnumerable<LeaderBoardDto>>> GetDataPlayer()
+        public async Task<ActionResult<IEnumerable<LeaderBoardDto>>> GetDataPlayer(Guid playerId)
         {
             var userIdClaims = User.FindFirst(ClaimTypes.NameIdentifier);
             if (userIdClaims == null || !Guid.TryParse(userIdClaims.Value, out Guid userId))
             {
                 return Unauthorized(new { message = "Invalid Token" });
             }
+
+            if (playerId != userId)
+                return Forbid();
 
             var result = await _leaderboardService.GetPlayerRankAsync(userId);
             if (result == null)

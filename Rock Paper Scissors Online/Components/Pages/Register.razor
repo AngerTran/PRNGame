@@ -1,0 +1,76 @@
+@page "/register"
+@rendermode InteractiveServer
+@inject GameApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Đăng ký</PageTitle>
+
+<div class="rps-auth-page">
+<AuthBrandSide Subtitle="Tạo tài khoản miễn phí, chơi realtime qua SignalR." />
+<div class="rps-form-narrow rps-auth-panel">
+<h1 class="h2">Đăng ký</h1>
+<p class="text-muted mb-4">Tạo tài khoản để vào sảnh và chơi.</p>
+
+<EditForm Model="_dto" OnValidSubmit="SubmitAsync">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="text-danger" />
+    <div class="mb-3">
+        <label class="form-label">Tên đăng nhập</label>
+        <InputText class="form-control" @bind-Value="_dto.Username" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Email</label>
+        <InputText class="form-control" @bind-Value="_dto.Email" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Mật khẩu</label>
+        <InputText type="password" class="form-control" @bind-Value="_dto.Password" autocomplete="new-password" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Tên hiển thị (tuỳ chọn)</label>
+        <InputText class="form-control" @bind-Value="_dto.DisplayName" />
+    </div>
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+    @if (!string.IsNullOrEmpty(_success))
+    {
+        <div class="alert alert-success">@_success</div>
+    }
+    <button class="btn btn-primary" type="submit" disabled="@_busy">@(_busy ? "Đang gửi…" : "Đăng ký")</button>
+</EditForm>
+<p class="mt-4 mb-0 small"><a href="/login">Đã có tài khoản? Đăng nhập</a></p>
+</div>
+</div>
+
+@code {
+    private readonly RegisterDto _dto = new();
+    private string? _error;
+    private string? _success;
+    private bool _busy;
+
+    private async Task SubmitAsync()
+    {
+        _busy = true;
+        _error = null;
+        _success = null;
+        try
+        {
+            var (ok, err) = await Api.RegisterAsync(_dto);
+            if (!ok)
+            {
+                _error = err ?? "Đăng ký thất bại";
+                return;
+            }
+
+            _success = "Đăng ký thành công. Chuyển tới đăng nhập…";
+            await Task.Delay(600);
+            Nav.NavigateTo("/login", forceLoad: false);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

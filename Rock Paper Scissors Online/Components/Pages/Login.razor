@@ -1,0 +1,69 @@
+@page "/login"
+@rendermode InteractiveServer
+@inject GameApiService Api
+@inject NavigationManager Nav
+
+<PageTitle>Đăng nhập</PageTitle>
+
+<div class="rps-auth-page">
+<AuthBrandSide Subtitle="Đăng nhập để vào sảnh và đấu với bạn bè." />
+<div class="rps-form-narrow rps-auth-panel">
+<h1 class="h2">Đăng nhập</h1>
+<p class="text-muted mb-4">Nhập tên đăng nhập hoặc email.</p>
+
+<EditForm Model="_model" OnValidSubmit="SubmitAsync">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="text-danger" />
+    <div class="mb-3">
+        <label class="form-label">Tài khoản</label>
+        <InputText class="form-control" @bind-Value="_model.Credential" />
+    </div>
+    <div class="mb-3">
+        <label class="form-label">Mật khẩu</label>
+        <InputText type="password" class="form-control" @bind-Value="_model.Password" autocomplete="current-password" />
+    </div>
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+    <button class="btn btn-primary" type="submit" disabled="@_busy">@(_busy ? "Đang xử lý…" : "Đăng nhập")</button>
+</EditForm>
+<p class="mt-4 mb-0 small"><a href="/register">Chưa có tài khoản? Đăng ký</a> · <a href="/">Home</a></p>
+</div>
+</div>
+
+@code {
+    private readonly LoginModel _model = new();
+    private string? _error;
+    private bool _busy;
+
+    private async Task SubmitAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            var (ok, err, _) = await Api.LoginAsync(_model.Credential.Trim(), _model.Password);
+            if (!ok)
+            {
+                _error = err ?? "Đăng nhập thất bại";
+                return;
+            }
+
+            Nav.NavigateTo("/lobby", forceLoad: false);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private sealed class LoginModel
+    {
+        [Required(ErrorMessage = "Bắt buộc")]
+        public string Credential { get; set; } = "";
+
+        [Required(ErrorMessage = "Bắt buộc")]
+        public string Password { get; set; } = "";
+    }
+}

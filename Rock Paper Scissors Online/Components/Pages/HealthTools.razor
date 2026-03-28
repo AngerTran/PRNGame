@@ -1,0 +1,32 @@
+@page "/tools/health"
+@rendermode InteractiveServer
+@inject GameApiService Api
+
+<PageTitle>Health API</PageTitle>
+
+<h1 class="h3">Health API</h1>
+<p class="small">Không cần đăng nhập · <a href="/portal">← Trung tâm</a></p>
+
+<div class="d-flex flex-wrap gap-1 mb-2">
+    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="@(() => Hit(() => Api.HealthBasicAsync()))">GET /health</button>
+    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="@(() => Hit(() => Api.HealthDeepAsync()))">deep</button>
+    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="@(() => Hit(() => Api.HealthReadyAsync()))">ready</button>
+    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="@(() => Hit(() => Api.HealthLiveAsync()))">live</button>
+    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="@(() => Hit(() => Api.HealthStatusAsync()))">status</button>
+    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="@(() => Hit(() => Api.HealthStatusDetailedAsync()))">status/detailed</button>
+    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="@(() => Hit(() => Api.HealthMetricsAsync()))">metrics</button>
+    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="@(() => Hit(() => Api.HealthVersionAsync()))">version</button>
+</div>
+<JsonApiResult Json="@_j" Error="@_e" />
+
+@code {
+    private string? _j, _e;
+
+    private async Task Hit(Func<Task<(bool Ok, string Body, string? Error)>> fn)
+    {
+        _e = null; _j = null;
+        var (ok, body, err) = await fn();
+        _j = ok ? body : null;
+        _e = err;
+    }
+}

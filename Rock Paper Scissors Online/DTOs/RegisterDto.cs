@@ -14,7 +14,7 @@ namespace Rock_Paper_Scissors_Online.DTOs
         public string Email { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Password is required")]
-        [StringLength(128, MinimumLength = 6, ErrorMessage = "Password must be between 8 and 128 characters")]
+        [StringLength(128, MinimumLength = 6, ErrorMessage = "Mật khẩu từ 6 đến 128 ký tự")]
         public string Password { get; set; } = string.Empty;
 
         [StringLength(50, ErrorMessage = "Display name must not exceed 50 characters")]

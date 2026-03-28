@@ -1,0 +1,100 @@
+@page "/dashboard"
+@rendermode InteractiveServer
+@inject GameApiService Api
+@inject AuthTokenStore Auth
+@inject NavigationManager Nav
+
+<PageTitle>Dashboard</PageTitle>
+
+@if (!_ready)
+{
+    <p>Đang tải…</p>
+}
+else if (_session == null)
+{
+    <p><a href="/login">Đăng nhập</a> để xem dashboard.</p>
+}
+else
+{
+    <h1 class="h3">Dashboard</h1>
+    <p class="small"><a href="/portal">← Trung tâm</a></p>
+
+    @if (!string.IsNullOrEmpty(_err))
+    {
+        <div class="alert alert-warning">@_err</div>
+    }
+
+    <div class="row g-3">
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header">Thống kê (GET dashboard/&#123;userId&#125;/stats)</div>
+                <div class="card-body small">
+                    @if (_stats != null)
+                    {
+                        <dl class="row mb-0">
+                            <dt class="col-6">Trận</dt><dd class="col-6">@_stats.TotalGames</dd>
+                            <dt class="col-6">Thắng / Thua</dt><dd class="col-6">@_stats.GamesWon / @_stats.GamesLost</dd>
+                            <dt class="col-6">Tỷ lệ thắng</dt><dd class="col-6">@_stats.WinRate.ToString("F1")%</dd>
+                            <dt class="col-6">Điểm</dt><dd class="col-6">@_stats.TotalPoints</dd>
+                            <dt class="col-6">Chuỗi hiện tại</dt><dd class="col-6">@_stats.CurrentStreak</dd>
+                        </dl>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header">Trận gần đây</div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush small">
+                        @foreach (var g in _recent?.Games ?? new List<RecentGameDto>())
+                        {
+                            <li class="list-group-item">@g.Opponent — @g.Result (@g.Timestamp.ToLocalTime():g)</li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header">Thành tựu</div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush small">
+                        @foreach (var a in _ach?.Achievements ?? new List<AchievementDto>())
+                        {
+                            <li class="list-group-item"><strong>@a.Title</strong> <span class="text-muted">(@a.Rarity)</span></li>
+                        }
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private PortalAuthState? _session;
+    private bool _ready;
+    private string? _err;
+    private DashboardStatsDto? _stats;
+    private RecentGamesDto? _recent;
+    private AchievementsDto? _ach;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _session = await Auth.LoadAsync();
+        if (_session != null)
+        {
+            var (ok1, s, e1) = await Api.GetDashboardStatsAsync(_session.UserId);
+            var (ok2, r, e2) = await Api.GetRecentGamesAsync(_session.UserId, 8, 0);
+            var (ok3, a, e3) = await Api.GetAchievementsAsync(_session.UserId, 10, 0);
+            _stats = s;
+            _recent = r;
+            _ach = a;
+            if (!ok1 || !ok2 || !ok3)
+                _err = string.Join(" ", new[] { e1, e2, e3 }.Where(x => !string.IsNullOrEmpty(x)));
+        }
+        _ready = true;
+        StateHasChanged();
+    }
+}

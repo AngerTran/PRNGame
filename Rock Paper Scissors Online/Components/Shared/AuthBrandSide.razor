@@ -1,0 +1,15 @@
+<div class="rps-auth-brand">
+    <div class="rps-auth-brand-inner">
+        <span class="rps-auth-brand-emoji" aria-hidden="true">🎮</span>
+        <p class="rps-auth-brand-title">RPS Online</p>
+        <p class="rps-auth-brand-line">Kéo · Búa · Bao</p>
+        @if (!string.IsNullOrWhiteSpace(Subtitle))
+        {
+            <p class="rps-auth-brand-sub">@Subtitle</p>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string? Subtitle { get; set; }
+}

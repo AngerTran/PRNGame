@@ -1,0 +1,118 @@
+@page "/history"
+@rendermode InteractiveServer
+@inject GameApiService Api
+@inject AuthTokenStore Auth
+@inject NavigationManager Nav
+
+<PageTitle>Lịch sử</PageTitle>
+
+@if (!_ready)
+{
+    <p>Đang tải…</p>
+}
+else
+{
+    <h1 class="h3">Lịch sử</h1>
+    <p class="small"><a href="/lobby">Sảnh</a> · <a href="/portal">Trung tâm</a> · <a href="/">Razor</a></p>
+
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item"><button type="button" class="nav-link @Tc(0)" @onclick='() => _tab=0'>Match history API</button></li>
+        <li class="nav-item"><button type="button" class="nav-link @Tc(1)" @onclick='() => _tab=1'>Giao dịch điểm API</button></li>
+    </ul>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger">@_error</div>
+    }
+
+    @if (_tab == 0)
+    {
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Thời gian</th>
+                        <th>Đối thủ</th>
+                        <th>Kết quả</th>
+                        <th>Ván</th>
+                        <th>Phòng</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var m in _matches)
+                    {
+                        <tr>
+                            <td>@m.PlayedAt.ToLocalTime().ToString("g")</td>
+                            <td>@m.OpponentUsername</td>
+                            <td>@m.Result</td>
+                            <td>@m.RoundsPlayed</td>
+                            <td>@m.RoomName</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-muted">GET api/v1/match-history/&#123;userId&#125;</p>
+    }
+    else
+    {
+        <button type="button" class="btn btn-sm btn-primary mb-2" @onclick="LoadTxAsync">Tải GET .../transactions</button>
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead><tr><th>Thời gian</th><th>Δ</th><th>Mô tả</th></tr></thead>
+                <tbody>
+                    @foreach (var t in _tx?.Transactions ?? new List<PointTransactionDto>())
+                    {
+                        <tr>
+                            <td>@t.CreatedAt.ToLocalTime().ToString("g")</td>
+                            <td>@t.Delta</td>
+                            <td>@t.Description</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+
+@code {
+    private bool _ready;
+    private int _tab;
+    private string? _error;
+    private List<MatchHistoryDto> _matches = new();
+    private PointTransactionHistoryResponse? _tx;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        var s = await Auth.LoadAsync();
+        if (s == null)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        var (ok, data, err) = await Api.GetMatchHistoryAsync(s.UserId);
+        if (!ok || data == null)
+            _error = err ?? "Không tải được lịch sử";
+        else
+            _matches = data.Matches;
+
+        _ready = true;
+        StateHasChanged();
+    }
+
+    private string Tc(int i) => _tab == i ? "active" : "";
+
+    private async Task LoadTxAsync()
+    {
+        var s = await Auth.LoadAsync();
+        if (s == null) return;
+        var (ok, data, err) = await Api.GetPointTransactionsAsync(s.UserId, 1, 50);
+        _tx = data;
+        if (!ok) _error = err;
+        StateHasChanged();
+    }
+}

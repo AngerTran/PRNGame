@@ -2,6 +2,8 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+using Rock_Paper_Scissors_Online.Client;
 using Rock_Paper_Scissors_Online.Components;
 using Rock_Paper_Scissors_Online.Hubs;
 using Rock_Paper_Scissors_Online.Mapper;
@@ -31,8 +33,13 @@ namespace Rock_Paper_Scissors_Online
 
             builder.Services.AddControllers();
             builder.Services.AddSignalR();
+            builder.Services.AddRazorPages();
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
+
+            builder.Services.AddScoped<ProtectedLocalStorage>();
+            builder.Services.AddScoped<AuthTokenStore>();
+            builder.Services.AddScoped<GameApiService>();
 
             builder.Services.AddAutoMapper(typeof(MappingProfile));
 
@@ -103,7 +110,10 @@ namespace Rock_Paper_Scissors_Online
                 app.UseHsts();
             }
 
-            app.UseHttpsRedirection();
+            // Chỉ bật redirect HTTPS khi có cổng HTTPS (tránh cảnh báo khi dùng launch profile chỉ HTTP)
+            var httpsPorts = Environment.GetEnvironmentVariable("ASPNETCORE_HTTPS_PORTS");
+            if (!app.Environment.IsDevelopment() || !string.IsNullOrEmpty(httpsPorts))
+                app.UseHttpsRedirection();
 
             app.UseAuthentication();
             app.UseAuthorization();
@@ -111,6 +121,7 @@ namespace Rock_Paper_Scissors_Online
             app.UseAntiforgery();
 
             app.MapStaticAssets();
+            app.MapRazorPages();
             app.MapControllers();
             app.MapHub<GameHub>("/gameHub");
             app.MapHub<ChatHub>("/chatHub");

@@ -1,30 +1,150 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">Rock Paper Scissors Online</a>
+@rendermode InteractiveServer
+@inject AuthTokenStore Auth
+@inject GameApiService Api
+@inject NavigationManager Nav
+@implements IAsyncDisposable
+
+<header class="rps-mega-header">
+    <div class="rps-mega-bar @(_loggedIn || IsLoginRegisterPage ? "" : "rps-mega-bar--guest")">
+        <a class="rps-mega-brand" href="/portal">
+            <span class="rps-logo-emoji" aria-hidden="true">🎮</span>
+            <span class="rps-nav-title">RPS Online</span>
+        </a>
+
+        @if (_loggedIn || !IsLoginRegisterPage)
+        {
+            <input type="checkbox" id="rps-mega-toggle" class="rps-mega-toggle-input" title="Menu" />
+            <label for="rps-mega-toggle" class="rps-mega-burger" aria-label="Mở menu"></label>
+        }
+
+        @if (_loggedIn)
+        {
+        <nav class="rps-mega-nav rps-navbar-block" aria-label="Điều hướng chính">
+            <div class="rps-mega-nav-primary">
+                <div class="rps-mega-node">
+                    <button type="button" class="rps-mega-trigger">Chơi <i class="bi bi-chevron-down rps-mega-chevron" aria-hidden="true"></i></button>
+                    <div class="rps-mega-panel" role="region" aria-label="Chơi">
+                        <div class="rps-mega-inner rps-mega-inner--compact">
+                            <div class="rps-mega-col">
+                                <NavLink class="rps-mega-link" href="lobby"><i class="bi bi-controller rps-mega-ic"></i>Sảnh phòng</NavLink>
+                                <NavLink class="rps-mega-link" href="history"><i class="bi bi-clock-history rps-mega-ic"></i>Lịch sử trận</NavLink>
+                                <NavLink class="rps-mega-link" href="tools/rooms"><i class="bi bi-door-open rps-mega-ic"></i>Phòng (REST)</NavLink>
+                                <NavLink class="rps-mega-link" href="tools/game"><i class="bi bi-joystick rps-mega-ic"></i>Game REST</NavLink>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rps-mega-node">
+                    <button type="button" class="rps-mega-trigger">Cộng đồng <i class="bi bi-chevron-down rps-mega-chevron" aria-hidden="true"></i></button>
+                    <div class="rps-mega-panel" role="region" aria-label="Cộng đồng">
+                        <div class="rps-mega-inner rps-mega-inner--two">
+                            <div class="rps-mega-col">
+                                <span class="rps-mega-col-title">Bảng &amp; người chơi</span>
+                                <NavLink class="rps-mega-link" href="dashboard"><i class="bi bi-speedometer2 rps-mega-ic"></i>Dashboard</NavLink>
+                                <NavLink class="rps-mega-link" href="leaderboard"><i class="bi bi-trophy rps-mega-ic"></i>Bảng xếp hạng</NavLink>
+                                <NavLink class="rps-mega-link" href="players"><i class="bi bi-people rps-mega-ic"></i>Người chơi</NavLink>
+                            </div>
+                            <div class="rps-mega-col">
+                                <span class="rps-mega-col-title">Tài khoản</span>
+                                <NavLink class="rps-mega-link" href="me"><i class="bi bi-person-badge rps-mega-ic"></i>Hồ sơ</NavLink>
+                                <NavLink class="rps-mega-link" href="me/points"><i class="bi bi-wallet2 rps-mega-ic"></i>Điểm</NavLink>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rps-mega-node">
+                    <button type="button" class="rps-mega-trigger">Vận hành <i class="bi bi-chevron-down rps-mega-chevron" aria-hidden="true"></i></button>
+                    <div class="rps-mega-panel" role="region" aria-label="Vận hành">
+                        <div class="rps-mega-inner rps-mega-inner--two">
+                            <div class="rps-mega-col">
+                                <span class="rps-mega-col-title">Realtime &amp; cược</span>
+                                <NavLink class="rps-mega-link" href="tools/chat"><i class="bi bi-chat-dots rps-mega-ic"></i>Chat &amp; activity</NavLink>
+                                <NavLink class="rps-mega-link" href="tools/betting"><i class="bi bi-currency-dollar rps-mega-ic"></i>Betting</NavLink>
+                                <NavLink class="rps-mega-link" href="tools/room-management"><i class="bi bi-sliders rps-mega-ic"></i>Quản lý phòng</NavLink>
+                            </div>
+                            <div class="rps-mega-col">
+                                <span class="rps-mega-col-title">Kỹ thuật</span>
+                                <NavLink class="rps-mega-link" href="tools/health"><i class="bi bi-heart-pulse rps-mega-ic"></i>Health</NavLink>
+                                <NavLink class="rps-mega-link" href="tools/api-explorer"><i class="bi bi-braces rps-mega-ic"></i>API explorer</NavLink>
+                                <NavLink class="rps-mega-link" href="account"><i class="bi bi-key rps-mega-ic"></i>Token &amp; phiên</NavLink>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+                <div class="rps-mega-auth rps-mega-auth--user">
+                    @if (!string.IsNullOrWhiteSpace(_session?.Username))
+                    {
+                        <span class="rps-mega-user" title="@_session!.Username">@TruncateUser(_session.Username)</span>
+                    }
+                    <button type="button" class="rps-mega-logout" @onclick="LogoutAsync">Đăng xuất</button>
+                </div>
+        </nav>
+        }
+        else if (!IsLoginRegisterPage)
+        {
+        <nav class="rps-mega-nav rps-mega-nav--guest">
+                <div class="rps-mega-auth rps-mega-auth--guest">
+                    <NavLink class="rps-mega-auth-link" href="login"><i class="bi bi-box-arrow-in-right rps-mega-ic"></i>Đăng nhập</NavLink>
+                    <NavLink class="rps-mega-auth-link rps-mega-auth-link--emph" href="register">Đăng ký</NavLink>
+                </div>
+        </nav>
+        }
     </div>
-</div>
+</header>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+@code {
+    private bool _loggedIn;
+    private PortalAuthState? _session;
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
+    private bool IsLoginRegisterPage
+    {
+        get
+        {
+            var path = Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0].Trim('/').ToLowerInvariant();
+            return path is "login" or "register";
+        }
+    }
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
-    </nav>
-</div>
+        Nav.LocationChanged += OnLocationChanged;
+        await RefreshAuthAsync();
+        StateHasChanged();
+    }
 
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) =>
+        _ = InvokeAsync(async () =>
+        {
+            await RefreshAuthAsync();
+            StateHasChanged();
+        });
+
+    private async Task RefreshAuthAsync()
+    {
+        _session = await Auth.LoadAsync();
+        _loggedIn = _session != null && !string.IsNullOrWhiteSpace(_session.AccessToken);
+    }
+
+    private async Task LogoutAsync()
+    {
+        await Api.LogoutAsync();
+        _loggedIn = false;
+        _session = null;
+        Nav.NavigateTo("/login", forceLoad: true);
+    }
+
+    private static string TruncateUser(string u) => u.Length <= 18 ? u : u[..15] + "…";
+
+    public ValueTask DisposeAsync()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+        return ValueTask.CompletedTask;
+    }
+}

@@ -1,0 +1,106 @@
+@page "/tools/chat"
+@rendermode InteractiveServer
+@inject GameApiService Api
+@inject AuthTokenStore Auth
+
+<PageTitle>Chat API</PageTitle>
+
+<h1 class="h3">Chat &amp; activity</h1>
+<p class="small"><a href="/portal">← Trung tâm</a></p>
+
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><button type="button" class="nav-link @A(0)" @onclick='()=>_t=0'>Global GET</button></li>
+    <li class="nav-item"><button type="button" class="nav-link @A(1)" @onclick='()=>_t=1'>Global POST</button></li>
+    <li class="nav-item"><button type="button" class="nav-link @A(2)" @onclick='()=>_t=2'>Activity feed</button></li>
+    <li class="nav-item"><button type="button" class="nav-link @A(3)" @onclick='()=>_t=3'>Room chat</button></li>
+</ul>
+
+@if (_t == 0)
+{
+    <button type="button" class="btn btn-sm btn-primary mb-2" @onclick="GlobGetAsync">GET global messages</button>
+    <JsonApiResult Json="@_j" Error="@_e" />
+}
+@if (_t == 1)
+{
+    @if (_session == null) { <p>Đăng nhập để gửi (cần UserId).</p> }
+    else
+    {
+        <div class="input-group mb-2" style="max-width:32rem">
+            <input class="form-control" @bind="_msg" maxlength="100" />
+            <button type="button" class="btn btn-primary" @onclick="GlobPostAsync">Gửi</button>
+        </div>
+        <JsonApiResult Json="@_j" Error="@_e" />
+    }
+}
+@if (_t == 2)
+{
+    <button type="button" class="btn btn-sm btn-primary mb-2" @onclick="FeedAsync">GET activity-feed</button>
+    <JsonApiResult Json="@_j" Error="@_e" />
+}
+@if (_t == 3)
+{
+    @if (_session == null) { <p><a href="/login">Đăng nhập</a> (room chat có [Authorize]).</p> }
+    else
+    {
+        <input class="form-control mb-2" style="max-width:24rem" @bind="_roomId" placeholder="roomId" />
+        <button type="button" class="btn btn-sm btn-outline-primary mb-2" @onclick="RoomGetAsync">GET messages</button>
+        <div class="input-group mb-2" style="max-width:32rem">
+            <input class="form-control" @bind="_rmsg" maxlength="100" />
+            <button type="button" class="btn btn-primary" @onclick="RoomPostAsync">POST</button>
+        </div>
+        <JsonApiResult Json="@_j" Error="@_e" />
+    }
+}
+
+@code {
+    private int _t;
+    private PortalAuthState? _session;
+    private string? _j, _e;
+    private string _msg = "Hello!";
+    private string _roomId = "";
+    private string _rmsg = "Hi room";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _session = await Auth.LoadAsync();
+        StateHasChanged();
+    }
+
+    private string A(int x) => _t == x ? "active" : "";
+
+    private async Task GlobGetAsync()
+    {
+        _e = null; _j = null;
+        var (ok, body, err) = await Api.GetGlobalChatMessagesAsync(80);
+        _j = ok ? body : null; _e = err;
+    }
+
+    private async Task GlobPostAsync()
+    {
+        _e = null; _j = null;
+        var (ok, body, err) = await Api.SendGlobalChatAsync(_msg);
+        _j = ok ? body : null; _e = err;
+    }
+
+    private async Task FeedAsync()
+    {
+        _e = null; _j = null;
+        var (ok, body, err) = await Api.GetActivityFeedAsync(25);
+        _j = ok ? body : null; _e = err;
+    }
+
+    private async Task RoomGetAsync()
+    {
+        _e = null; _j = null;
+        var (ok, body, err) = await Api.GetRoomChatMessagesAsync(_roomId, 80);
+        _j = ok ? body : null; _e = err;
+    }
+
+    private async Task RoomPostAsync()
+    {
+        _e = null; _j = null;
+        var (ok, body, err) = await Api.SendRoomChatAsync(_roomId, _rmsg);
+        _j = ok ? body : null; _e = err;
+    }
+}

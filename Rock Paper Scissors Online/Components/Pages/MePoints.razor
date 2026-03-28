@@ -1,0 +1,79 @@
+@page "/me/points"
+@rendermode InteractiveServer
+@inject GameApiService Api
+@inject AuthTokenStore Auth
+
+<PageTitle>Điểm</PageTitle>
+
+<h1 class="h3">Điểm (Points API)</h1>
+<p class="small"><a href="/portal">← Trung tâm</a></p>
+
+@if (_session == null)
+{
+    <p><a href="/login">Đăng nhập</a></p>
+}
+else
+{
+    <div class="card mb-3">
+        <div class="card-body">
+            <h2 class="h6 mb-2">GET api/v1/points/current</h2>
+            <p class="mb-0 fs-4">@_myPoints điểm</p>
+            <button type="button" class="btn btn-sm btn-outline-primary mt-2" @onclick="RefreshMineAsync">Làm mới</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">GET api/v1/points/&#123;userId&#125;</div>
+        <div class="card-body">
+            <div class="input-group" style="max-width:28rem">
+                <input class="form-control" @bind="_otherId" placeholder="Guid" />
+                <button type="button" class="btn btn-primary" @onclick="LoadOtherAsync">Xem</button>
+            </div>
+            @if (_otherPoints.HasValue)
+            {
+                <p class="mt-2 mb-0">Điểm: <strong>@_otherPoints</strong></p>
+            }
+            @if (!string.IsNullOrEmpty(_otherErr))
+            {
+                <p class="text-danger small mt-2">@_otherErr</p>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private PortalAuthState? _session;
+    private long _myPoints;
+    private string _otherId = "";
+    private long? _otherPoints;
+    private string? _otherErr;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _session = await Auth.LoadAsync();
+        if (_session != null)
+            await RefreshMineAsync();
+        StateHasChanged();
+    }
+
+    private async Task RefreshMineAsync()
+    {
+        var (ok, pts, _) = await Api.GetCurrentPointsAsync();
+        if (ok) _myPoints = pts;
+    }
+
+    private async Task LoadOtherAsync()
+    {
+        _otherErr = null;
+        _otherPoints = null;
+        if (!Guid.TryParse(_otherId, out var g))
+        {
+            _otherErr = "GUID không hợp lệ";
+            return;
+        }
+        var (ok, pts, err) = await Api.GetUserPointsAsync(g);
+        if (!ok) _otherErr = err;
+        else _otherPoints = pts;
+    }
+}

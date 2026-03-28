@@ -7,8 +7,11 @@ namespace Rock_Paper_Scissors_Online.Mapper
     {
         public MappingProfile()
         {
-            // User to UserDto mapping
-            CreateMap<User, UserDto>();
+            // User -> UserDto (entity dùng DateTimeOffset; DTO dùng DateTime)
+            CreateMap<User, UserDto>()
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt.UtcDateTime))
+                .ForMember(dest => dest.LastPlayedAt, opt => opt.MapFrom(src =>
+                    src.LastPlayedAt.HasValue ? src.LastPlayedAt.Value.UtcDateTime : (DateTime?)null));
 
             CreateMap<RegisterDto, User>()
                 .ForMember(dest => dest.DisplayName, opt => opt.MapFrom(src =>
