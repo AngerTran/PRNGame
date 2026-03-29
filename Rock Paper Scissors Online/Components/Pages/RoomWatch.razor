@@ -1,0 +1,241 @@
+@page "/watch/{RoomId}"
+@rendermode InteractiveServer
+@using System.Text.Json
+@using Rock_Paper_Scissors_Online.DTOs
+@inject GameApiService Api
+@inject AuthTokenStore Auth
+@inject NavigationManager Nav
+
+<PageTitle>Xem trận · @RoomId</PageTitle>
+
+@if (!_ready)
+{
+    <p class="px-2">Đang tải…</p>
+}
+else if (_session == null)
+{
+    <p class="px-2"><a href="/login">Đăng nhập</a> để xem và cược.</p>
+}
+else
+{
+    <div class="rps-watch-shell px-2 py-3">
+        <header class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+            <div>
+                <p class="small text-muted mb-1">Theo dõi trận</p>
+                <h1 class="h4 mb-0">@(_room?.Name ?? "Phòng")</h1>
+            </div>
+            <a class="btn btn-sm btn-outline-secondary" href="/lobby">← Sảnh</a>
+        </header>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="alert alert-danger py-2">@_error</div>
+        }
+        @if (!string.IsNullOrEmpty(_toast))
+        {
+            <div class="alert alert-info py-2 small">@_toast</div>
+        }
+
+        @if (_room == null)
+        {
+            <p class="text-muted">Không tìm thấy phòng.</p>
+        }
+        else if (!_room.AllowBetting)
+        {
+            <p class="text-muted">Phòng này không bật cược.</p>
+        }
+        else if (!IsMatchLive(_room))
+        {
+            <p class="text-muted">Chỉ cược khi trận đang diễn ra (hai người chơi và trạng thái đấu).</p>
+            <p class="small">Trạng thái hiện tại: <strong>@_room.Status</strong> · Người chơi: @_room.CurrentPlayers/@_room.MaxPlayers</p>
+        }
+        else
+        {
+            @if (_room.IsPrivate)
+            {
+                <div class="mb-3">
+                    <label class="form-label small">Mã PIN phòng riêng (bắt buộc để cược)</label>
+                    <input class="form-control form-control-sm" style="max-width:12rem" maxlength="8" autocomplete="off"
+                           placeholder="PIN" @bind="_pin" @bind:event="oninput" />
+                </div>
+            }
+
+            <div class="rps-watch-vs card border-secondary bg-dark text-light mb-3">
+                <div class="card-body">
+                    <div class="row g-2 text-center">
+                        <div class="col-5">
+                            <div class="small text-muted">Người chơi 1</div>
+                            <div class="fw-bold">@P1Name</div>
+                            <div class="small">Điểm: @ScoreP1</div>
+                        </div>
+                        <div class="col-2 align-self-center text-muted small">vs</div>
+                        <div class="col-5">
+                            <div class="small text-muted">Người chơi 2</div>
+                            <div class="fw-bold">@P2Name</div>
+                            <div class="small">Điểm: @ScoreP2</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <section class="mb-3">
+                <div class="small text-muted mb-2">Chọn mức cược (xu)</div>
+                <div class="btn-group flex-wrap" role="group">
+                    @foreach (var a in _stakes)
+                    {
+                        var active = _selectedStake == a;
+                        <button type="button" class="btn btn-sm @(active ? "btn-primary" : "btn-outline-primary")"
+                                @onclick="() => _selectedStake = a">@a</button>
+                    }
+                </div>
+            </section>
+
+            <section class="mb-3">
+                <div class="small text-muted mb-2">Đặt cược — người thắng trận nhận pool theo tỉ lệ (đã trừ xu lúc đặt)</div>
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-success" type="button" disabled="@(_busy || P1Id == null)" @onclick="() => PlaceAsync(P1Id!)">
+                        Cược @P1Name
+                    </button>
+                    <button class="btn btn-success" type="button" disabled="@(_busy || P2Id == null)" @onclick="() => PlaceAsync(P2Id!)">
+                        Cược @P2Name
+                    </button>
+                </div>
+                <p class="small text-muted mt-2 mb-0">Mỗi tài khoản chỉ một lần cược mỗi trận trong phòng. Không được cược nếu bạn là người chơi trong phòng.</p>
+            </section>
+
+            @if (!string.IsNullOrEmpty(_poolSummary))
+            {
+                <section class="small font-monospace text-break border rounded p-2 bg-black bg-opacity-25">
+                    @_poolSummary
+                </section>
+            }
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string RoomId { get; set; } = "";
+    [SupplyParameterFromQuery] public string? Pin { get; set; }
+
+    private PortalAuthState? _session;
+    private RoomResponseDto? _room;
+    private bool _ready;
+    private bool _busy;
+    private string? _error;
+    private string? _toast;
+    private string _pin = "";
+    private decimal _selectedStake = 50;
+    private static readonly decimal[] _stakes = { 25m, 50m, 100m, 150m };
+    private string? _poolSummary;
+
+    private string? P1Id => _room?.Player1?.UserId;
+    private string? P2Id => _room?.Player2?.UserId;
+    private string P1Name => _room?.Player1?.Username ?? "—";
+    private string P2Name => _room?.Player2?.Username ?? "—";
+
+    private int ScoreP1 => _room?.PlayerScores?.GetValueOrDefault(P1Id ?? "", 0) ?? 0;
+    private int ScoreP2 => _room?.PlayerScores?.GetValueOrDefault(P2Id ?? "", 0) ?? 0;
+
+    private static bool IsMatchLive(RoomResponseDto r)
+    {
+        if (r.CurrentPlayers < 2 || r.Player1 == null || r.Player2 == null)
+            return false;
+        var st = r.Status ?? "";
+        return st.Equals("Playing", StringComparison.OrdinalIgnoreCase)
+               || st.Equals("InProgress", StringComparison.OrdinalIgnoreCase);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        var s = await Auth.LoadAsync();
+        if (s == null)
+        {
+            _ready = true;
+            StateHasChanged();
+            return;
+        }
+
+        _session = s;
+        if (!string.IsNullOrWhiteSpace(Pin))
+            _pin = Pin.Trim();
+
+        var (ok, room, err) = await Api.GetRoomAsync(RoomId);
+        if (!ok || room == null)
+            _error = err ?? "Không tải được phòng.";
+        else
+            _room = room;
+
+        _ready = true;
+        if (_room != null && IsMatchLive(_room))
+            _ = RefreshPoolQuietAsync();
+        StateHasChanged();
+    }
+
+    private async Task RefreshPoolQuietAsync()
+    {
+        var (ok, body, _) = await Api.BettingGetPoolAsync(RoomId);
+        if (!ok || string.IsNullOrEmpty(body))
+            return;
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("data", out var d))
+                _poolSummary = PrettyPool(d);
+            else
+                _poolSummary = body;
+        }
+        catch
+        {
+            _poolSummary = body;
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static string PrettyPool(JsonElement data)
+    {
+        try
+        {
+            return JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch
+        {
+            return data.ToString();
+        }
+    }
+
+    private async Task PlaceAsync(string targetPlayerId)
+    {
+        if (_session == null || _room == null)
+            return;
+        _busy = true;
+        _toast = null;
+        _error = null;
+        try
+        {
+            if (_room.IsPrivate && string.IsNullOrWhiteSpace(_pin))
+            {
+                _error = "Nhập mã PIN phòng riêng.";
+                return;
+            }
+
+            var (ok, _, err) = await Api.BettingPlaceAsync(RoomId, _selectedStake, targetPlayerId,
+                _room.IsPrivate ? _pin.Trim() : null);
+            if (!ok)
+            {
+                _error = err ?? "Đặt cược thất bại.";
+                return;
+            }
+
+            _toast = $"Đã đặt cược {_selectedStake} xu.";
+            await RefreshPoolQuietAsync();
+        }
+        finally
+        {
+            _busy = false;
+            StateHasChanged();
+        }
+    }
+}

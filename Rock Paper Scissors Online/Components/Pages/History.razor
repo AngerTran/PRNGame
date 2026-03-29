@@ -34,6 +34,7 @@ else
                         <th>Thời gian</th>
                         <th>Đối thủ</th>
                         <th>Kết quả</th>
+                        <th>± Điểm</th>
                         <th>Ván</th>
                         <th>Phòng</th>
                     </tr>
@@ -44,7 +45,8 @@ else
                         <tr>
                             <td>@m.PlayedAt.ToLocalTime().ToString("g")</td>
                             <td>@m.OpponentUsername</td>
-                            <td>@m.Result</td>
+                            <td>@FormatMatchResult(m.Result)</td>
+                            <td>@FormatDelta(m)</td>
                             <td>@m.RoundsPlayed</td>
                             <td>@m.RoomName</td>
                         </tr>
@@ -105,6 +107,21 @@ else
     }
 
     private string Tc(int i) => _tab == i ? "active" : "";
+
+    private static string FormatMatchResult(string r) => r.ToLowerInvariant() switch
+    {
+        "win" => "Thắng",
+        "loss" => "Thua",
+        "draw" => "Hòa",
+        _ => r
+    };
+
+    private static string FormatDelta(MatchHistoryDto m)
+    {
+        if (m.PointsEarned > 0) return $"+{m.PointsEarned}";
+        if (m.PointsLost > 0) return $"-{m.PointsLost}";
+        return "—";
+    }
 
     private async Task LoadTxAsync()
     {

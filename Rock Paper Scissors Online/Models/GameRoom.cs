@@ -30,6 +30,9 @@ public class GameRoom
     public DateTime? TimeoutAt { get; set; }
     public Dictionary<string, int> PlayerScores { get; set; } = new();
     public string? GameState { get; set; }
+
+    /// <summary>Đã khóa hai nước và đang chờ hết đếm ngược reveal trước khi xử lý ván.</summary>
+    public bool PendingRevealResolution { get; set; }
 }
 
 public class RoomPlayer

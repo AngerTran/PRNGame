@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Rock_Paper_Scissors_Online.DTOs;
 using Rock_Paper_Scissors_Online.Services.Interfaces;
+using System.Security.Claims;
 
 namespace Rock_Paper_Scissors_Online.Controllers
 {
@@ -31,6 +32,16 @@ namespace Rock_Paper_Scissors_Online.Controllers
                     {
                         Success = false,
                         Message = "Invalid user ID format"
+                    });
+                }
+
+                var caller = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (caller == null || !string.Equals(caller, userId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden, new ApiResponse<MatchHistoryResponse>
+                    {
+                        Success = false,
+                        Message = "Chỉ được xem lịch sử trận của chính bạn."
                     });
                 }
 
@@ -75,6 +86,16 @@ namespace Rock_Paper_Scissors_Online.Controllers
                     {
                         Success = false,
                         Message = "Invalid user ID format"
+                    });
+                }
+
+                var caller = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (caller == null || !string.Equals(caller, userId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden, new ApiResponse<PointTransactionHistoryResponse>
+                    {
+                        Success = false,
+                        Message = "Chỉ được xem giao dịch điểm của chính bạn."
                     });
                 }
 

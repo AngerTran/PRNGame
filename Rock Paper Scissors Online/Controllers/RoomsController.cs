@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.SignalR;
 using Rock_Paper_Scissors_Online.DTOs;
 using Rock_Paper_Scissors_Online.Hubs;
 using Rock_Paper_Scissors_Online.Services.Interfaces;
+using Rock_Paper_Scissors_Online.Ultilities;
 using System.Security.Claims;
 
 namespace Rock_Paper_Scissors_Online.Controllers
@@ -89,7 +90,8 @@ namespace Rock_Paper_Scissors_Online.Controllers
                 );
 
                 var roomResponse = _mapper.Map<RoomResponseDto>(room);
-                roomResponse.PinCode = room.PinCode;
+                // Chỉ phòng riêng mới trả PIN; chỉ chủ phòng (người tạo) nhận được trong response này
+                roomResponse.PinCode = room.IsPrivate ? room.PinCode : null;
 
                 Console.WriteLine($"\u001b[34m[ROOM CREATION]\u001b[0m Room '{room.Name}' created by {username}");
 
@@ -127,15 +129,8 @@ namespace Rock_Paper_Scissors_Online.Controllers
                 var rooms = await _roomService.GetAllRoomsAsync();
                 var roomResponses = _mapper.Map<List<RoomResponseDto>>(rooms);
 
-                // Show PIN codes to all authenticated users
-                foreach (var roomResponse in roomResponses)
-                {
-                    if (string.IsNullOrEmpty(userId))
-                    {
-                        roomResponse.PinCode = null;
-                    }
-                    // For authenticated users, always show PIN codes
-                }
+                for (var i = 0; i < roomResponses.Count; i++)
+                    RoomPinRedaction.RedactPrivatePinUnlessHost(roomResponses[i], userId, rooms[i]);
 
                 return Ok(new
                 {
@@ -179,13 +174,7 @@ namespace Rock_Paper_Scissors_Online.Controllers
                 var roomResponse = _mapper.Map<RoomResponseDto>(room);
 
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-                // Show PIN codes to all authenticated users
-                if (string.IsNullOrEmpty(userId))
-                {
-                    roomResponse.PinCode = null;
-                }
-                // For authenticated users, always show PIN codes
+                RoomPinRedaction.RedactPrivatePinUnlessHost(roomResponse, userId, room);
 
                 return Ok(new
                 {
@@ -317,6 +306,8 @@ namespace Rock_Paper_Scissors_Online.Controllers
                 }
 
                 var roomResponse = _mapper.Map<RoomResponseDto>(room);
+                RoomPinRedaction.RedactPrivatePinUnlessHost(roomResponse, userId, room);
+                var roomForHub = RoomPinRedaction.CloneWithoutPin(_mapper, room);
                 Console.WriteLine($"[ROOM JOIN] User {username} joined room '{room.Name}' (ID: {room.Id})");
 
                 // Send PlayerJoined event to clients in the specific room only
@@ -324,7 +315,7 @@ namespace Rock_Paper_Scissors_Online.Controllers
                 {
                     success = true,
                     message = $"{username} joined the room",
-                    data = new { room = roomResponse }
+                    data = new { room = roomForHub }
                 });
 
                 // Broadcast room list update via SignalR
@@ -420,6 +411,8 @@ namespace Rock_Paper_Scissors_Online.Controllers
                             }
 
                             var roomResponse = _mapper.Map<RoomResponseDto>(spectatorRoom);
+                            RoomPinRedaction.RedactPrivatePinUnlessHost(roomResponse, userId, spectatorRoom);
+                            var roomForHub = RoomPinRedaction.CloneWithoutPin(_mapper, spectatorRoom);
                             Console.WriteLine($"[ROOM JOIN BY PIN] User {username} joined room '{spectatorRoom.Name}' as spectator (ID: {spectatorRoom.Id})");
 
                             // Send SpectatorJoined event to clients in the specific room only
@@ -427,7 +420,7 @@ namespace Rock_Paper_Scissors_Online.Controllers
                             {
                                 success = true,
                                 message = $"{username} joined the room as spectator",
-                                data = new { room = roomResponse }
+                                data = new { room = roomForHub }
                             });
 
                             // Broadcast room list update via SignalR
@@ -485,6 +478,8 @@ namespace Rock_Paper_Scissors_Online.Controllers
                     }
 
                     var playerRoomResponse = _mapper.Map<RoomResponseDto>(room);
+                    RoomPinRedaction.RedactPrivatePinUnlessHost(playerRoomResponse, userId, room);
+                    var roomForHub = RoomPinRedaction.CloneWithoutPin(_mapper, room);
                     Console.WriteLine($"[ROOM JOIN BY PIN] User {username} joined room '{room.Name}' as player (ID: {room.Id})");
 
                     // Send PlayerJoined event to clients in the specific room only
@@ -492,7 +487,7 @@ namespace Rock_Paper_Scissors_Online.Controllers
                     {
                         success = true,
                         message = $"{username} joined the room",
-                        data = new { room = playerRoomResponse }
+                        data = new { room = roomForHub }
                     });
 
                     // Broadcast room list update via SignalR
@@ -555,6 +550,8 @@ namespace Rock_Paper_Scissors_Online.Controllers
                 }
 
                 var roomResponse = _mapper.Map<RoomResponseDto>(room);
+                if (room != null)
+                    RoomPinRedaction.RedactPrivatePinUnlessHost(roomResponse, userId, room);
                 Console.WriteLine($"[ROOM JOIN AS SPECTATOR] User {username} joined room '{room?.Name}' as spectator");
 
                 // Broadcast room list update via SignalR
@@ -617,11 +614,18 @@ namespace Rock_Paper_Scissors_Online.Controllers
                 // Broadcast room list update via SignalR
                 await BroadcastRoomListUpdate();
 
+                RoomResponseDto? leaveDto = null;
+                if (room != null)
+                {
+                    leaveDto = _mapper.Map<RoomResponseDto>(room);
+                    RoomPinRedaction.RedactPrivatePinUnlessHost(leaveDto, userId, room);
+                }
+
                 return Ok(new
                 {
                     success = true,
                     message = message,
-                    data = room != null ? new { room = _mapper.Map<RoomResponseDto>(room) } : null
+                    data = leaveDto != null ? new { room = leaveDto } : null
                 });
             }
             catch (Exception ex)
@@ -741,15 +745,8 @@ namespace Rock_Paper_Scissors_Online.Controllers
                 var rooms = await _roomService.GetAllRoomsAsync();
                 var roomResponses = _mapper.Map<List<RoomResponseDto>>(rooms);
 
-                // For broadcast to all clients, hide PIN codes for security
-                // Individual clients can request specific room details with PIN codes via REST API
                 foreach (var roomResponse in roomResponses)
-                {
-                    if (roomResponse.IsPrivate)
-                    {
-                        roomResponse.PinCode = null;
-                    }
-                }
+                    roomResponse.PinCode = null;
 
                 await _gameHubContext.Clients.All.SendAsync("RoomListUpdated", new
                 {

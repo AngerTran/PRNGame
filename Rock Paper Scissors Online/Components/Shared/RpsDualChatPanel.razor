@@ -1,0 +1,353 @@
+@using System.Globalization
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Web
+@implements IAsyncDisposable
+@inject GameApiService Api
+@inject AuthTokenStore Auth
+@inject NavigationManager Nav
+
+@if (_initialized && !_chatCollapsed)
+{
+    <aside class="rps-dual-chat" aria-label="Chat">
+        <div class="rps-dual-chat-h">
+            <span>Chat</span>
+            <button type="button" class="rps-dual-chat-collapse" title="Thu gọn"
+                @onclick="() => _chatCollapsed = true" aria-expanded="true">
+                <i class="bi bi-chevron-down" aria-hidden="true"></i>
+            </button>
+        </div>
+        <div class="rps-dual-chat-tabs" role="tablist">
+            <button type="button" role="tab" class="rps-dual-chat-tab @(_tab == ChatTab.Global ? "rps-dual-chat-tab--active" : "")"
+                aria-selected="@(_tab == ChatTab.Global)" @onclick="() => _tab = ChatTab.Global">
+                Tổng
+            </button>
+            @if (ShowRoomTab)
+            {
+                <button type="button" role="tab" class="rps-dual-chat-tab @(_tab == ChatTab.Room ? "rps-dual-chat-tab--active" : "")"
+                    aria-selected="@(_tab == ChatTab.Room)" @onclick="() => _tab = ChatTab.Room">
+                    Phòng
+                </button>
+            }
+        </div>
+        <div class="rps-dual-chat-msgs" role="tabpanel">
+            @if (ActiveList.Count == 0)
+            {
+                <p class="rps-dual-chat-empty small mb-0">
+                    @(_tab == ChatTab.Global
+                        ? "Chưa có tin — chat với cả sảnh."
+                        : "Chưa có tin trong phòng này.")
+                </p>
+            }
+            else
+            {
+                @foreach (var line in ActiveList)
+                {
+                    <div class="rps-dual-chat-line">
+                        <span class="rps-dual-chat-meta">@line.TimeShort · <strong>@line.Username</strong></span>
+                        <span class="rps-dual-chat-txt">@line.Content</span>
+                    </div>
+                }
+            }
+        </div>
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <p class="rps-dual-chat-err small mb-0 px-2">@_error</p>
+        }
+        <div class="rps-dual-chat-input-row">
+            <input class="form-control form-control-sm rps-dual-chat-input" type="text"
+                maxlength="@MaxInputLen" placeholder="@InputPlaceholder"
+                @bind="_input" @bind:event="oninput"
+                @onkeydown="OnKeyDownAsync" disabled="@_sendBusy"
+                aria-label="Tin nhắn chat" />
+            <button type="button" class="btn btn-sm rps-dual-chat-send" disabled="@_sendBusy"
+                @onclick="SendAsync">Gửi</button>
+        </div>
+    </aside>
+}
+else if (_initialized)
+{
+    <button type="button" class="rps-dual-chat-fab" @onclick="() => _chatCollapsed = false"
+        aria-label="Mở chat">
+        <i class="bi bi-chat-dots-fill" aria-hidden="true"></i>
+        <span>Chat</span>
+    </button>
+}
+
+@code {
+    /// <summary>Kết nối gameHub của trang phòng — null ở sảnh.</summary>
+    [Parameter] public HubConnection? RoomGameHub { get; set; }
+
+    /// <summary>Id phòng (cùng group SignalR với JoinRoom).</summary>
+    [Parameter] public string? GameRoomId { get; set; }
+
+    private enum ChatTab { Global, Room }
+
+    private HubConnection? _chatHub;
+    private bool _initialized;
+    private bool _chatCollapsed;
+    private ChatTab _tab = ChatTab.Global;
+    private bool _roomHandlersAttached;
+    private string _input = "";
+    private bool _sendBusy;
+    private string? _error;
+
+    private readonly List<ChatLine> _globalChat = new();
+    private readonly List<ChatLine> _roomChat = new();
+
+    private bool ShowRoomTab => RoomGameHub != null && !string.IsNullOrWhiteSpace(GameRoomId);
+
+    private List<ChatLine> ActiveList => _tab == ChatTab.Global ? _globalChat : _roomChat;
+
+    private int MaxInputLen => _tab == ChatTab.Global ? 100 : 500;
+
+    private string InputPlaceholder => _tab == ChatTab.Global
+        ? "Chat tổng (tối đa 100 ký tự)…"
+        : "Chat phòng…";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var s = await Auth.LoadAsync();
+        if (s == null)
+            return;
+
+        try
+        {
+            var hubUri = Nav.ToAbsoluteUri($"/chatHub?access_token={Uri.EscapeDataString(s.AccessToken)}");
+            _chatHub = new HubConnectionBuilder()
+                .WithUrl(hubUri)
+                .WithAutomaticReconnect()
+                .Build();
+
+            _chatHub.On<JsonElement>("ReceiveGlobalMessage", payload =>
+            {
+                if (TryParseChatMessage(payload, out var line))
+                {
+                    AppendLine(_globalChat, line);
+                    return InvokeAsync(StateHasChanged);
+                }
+
+                return Task.CompletedTask;
+            });
+
+            await _chatHub.StartAsync();
+            await LoadGlobalHistoryAsync();
+
+            TryAttachRoomHandlers();
+            _initialized = true;
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+            _initialized = true;
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!ShowRoomTab && _tab == ChatTab.Room)
+            _tab = ChatTab.Global;
+        TryAttachRoomHandlers();
+    }
+
+    private void TryAttachRoomHandlers()
+    {
+        if (_roomHandlersAttached || RoomGameHub == null || string.IsNullOrWhiteSpace(GameRoomId))
+            return;
+
+        _roomHandlersAttached = true;
+
+        RoomGameHub.On<JsonElement>("RoomMessages", payload =>
+        {
+            LoadRoomMessagesFromHub(payload);
+            return InvokeAsync(StateHasChanged);
+        });
+
+        RoomGameHub.On<JsonElement>("ReceiveRoomMessage", payload =>
+        {
+            if (TryParseChatMessage(payload, out var line))
+            {
+                AppendLine(_roomChat, line);
+                return InvokeAsync(StateHasChanged);
+            }
+
+            return Task.CompletedTask;
+        });
+
+        _ = RefreshRoomMessagesAsync();
+    }
+
+    private async Task RefreshRoomMessagesAsync()
+    {
+        if (RoomGameHub == null || string.IsNullOrWhiteSpace(GameRoomId))
+            return;
+        try
+        {
+            await RoomGameHub.InvokeAsync("GetRoomMessages", GameRoomId, 80);
+        }
+        catch
+        {
+            /* ignore */
+        }
+    }
+
+    private async Task LoadGlobalHistoryAsync()
+    {
+        var (ok, body, _) = await Api.GetGlobalChatMessagesAsync(80);
+        if (!ok || string.IsNullOrWhiteSpace(body))
+            return;
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (!doc.RootElement.TryGetProperty("data", out var data) ||
+                !data.TryGetProperty("messages", out var arr) ||
+                arr.ValueKind != JsonValueKind.Array)
+                return;
+            _globalChat.Clear();
+            foreach (var el in arr.EnumerateArray())
+            {
+                if (TryParseChatMessage(el, out var line))
+                    _globalChat.Add(line);
+            }
+
+            TrimList(_globalChat);
+        }
+        catch
+        {
+            /* ignore */
+        }
+    }
+
+    private void LoadRoomMessagesFromHub(JsonElement root)
+    {
+        if (!root.TryGetProperty("data", out var data) || !data.TryGetProperty("messages", out var arr) ||
+            arr.ValueKind != JsonValueKind.Array)
+            return;
+        _roomChat.Clear();
+        foreach (var el in arr.EnumerateArray())
+        {
+            if (TryParseChatMessage(el, out var line))
+                _roomChat.Add(line);
+        }
+
+        TrimList(_roomChat);
+    }
+
+    private static void AppendLine(List<ChatLine> list, ChatLine line)
+    {
+        list.Add(line);
+        TrimList(list);
+    }
+
+    private static void TrimList(List<ChatLine> list)
+    {
+        const int max = 120;
+        while (list.Count > max)
+            list.RemoveAt(0);
+    }
+
+    private async Task SendAsync()
+    {
+        _error = null;
+        var text = _input.Trim();
+        if (text.Length == 0)
+            return;
+
+        _sendBusy = true;
+        try
+        {
+            if (_tab == ChatTab.Global)
+            {
+                var (ok, _, err) = await Api.SendGlobalChatAsync(text);
+                if (!ok)
+                {
+                    _error = err ?? "Không gửi được chat tổng.";
+                    return;
+                }
+
+                _input = "";
+            }
+            else
+            {
+                if (RoomGameHub == null || string.IsNullOrWhiteSpace(GameRoomId))
+                {
+                    _error = "Chưa kết nối chat phòng.";
+                    return;
+                }
+
+                await RoomGameHub.InvokeAsync("SendRoomMessage", GameRoomId, text);
+                _input = "";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _sendBusy = false;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter")
+            return;
+        await SendAsync();
+    }
+
+    private static bool TryParseChatMessage(JsonElement el, out ChatLine line)
+    {
+        line = new ChatLine();
+        var user = JsonPropString(el, "username", "Username");
+        var content = JsonPropString(el, "content", "Content");
+        if (user == null || content == null)
+            return false;
+        line.Username = user;
+        line.Content = content;
+        if (line.Content.Length == 0)
+            return false;
+
+        line.TimeShort = "??:??";
+        if (el.TryGetProperty("timestamp", out var ts) || el.TryGetProperty("Timestamp", out ts))
+        {
+            if (ts.ValueKind == JsonValueKind.String &&
+                DateTime.TryParse(ts.GetString(), null, DateTimeStyles.RoundtripKind, out var dt))
+                line.TimeShort = dt.ToLocalTime().ToString("HH:mm");
+            else if (ts.ValueKind == JsonValueKind.Number && ts.TryGetInt64(out var unix))
+                line.TimeShort = DateTimeOffset.FromUnixTimeMilliseconds(unix).ToLocalTime().ToString("HH:mm");
+            else if (ts.ValueKind == JsonValueKind.Object && ts.TryGetProperty("dateTime", out var inner))
+            {
+                var s = inner.GetString();
+                if (!string.IsNullOrEmpty(s) &&
+                    DateTime.TryParse(s, null, DateTimeStyles.RoundtripKind, out var dt2))
+                    line.TimeShort = dt2.ToLocalTime().ToString("HH:mm");
+            }
+        }
+
+        return true;
+    }
+
+    private static string? JsonPropString(JsonElement el, string camel, string pascal)
+    {
+        if (el.TryGetProperty(camel, out var a) && a.ValueKind == JsonValueKind.String)
+            return a.GetString();
+        if (el.TryGetProperty(pascal, out var b) && b.ValueKind == JsonValueKind.String)
+            return b.GetString();
+        return null;
+    }
+
+    private sealed class ChatLine
+    {
+        public string Username { get; set; } = "";
+        public string Content { get; set; } = "";
+        public string TimeShort { get; set; } = "";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_chatHub != null)
+            await _chatHub.DisposeAsync();
+    }
+}

@@ -9,8 +9,10 @@ using System.Security.Claims;
 using Rock_Paper_Scissors_Online.DTOs;
 using Rock_Paper_Scissors_Online.Enums;
 using Rock_Paper_Scissors_Online.Models;
+using Rock_Paper_Scissors_Online.Services;
 using Rock_Paper_Scissors_Online.Services.Interfaces;
 using Rock_Paper_Scissors_Online.Repository.Interfaces;
+using Rock_Paper_Scissors_Online.Ultilities;
 
 namespace Rock_Paper_Scissors_Online.Hubs
 {
@@ -33,6 +35,10 @@ namespace Rock_Paper_Scissors_Online.Hubs
         private static readonly Dictionary<string, bool> _gameCompleted = new();
         private static readonly Dictionary<string, bool> _betsRefunded = new();
         private static IHubContext<GameHub>? _hubContext;
+
+        private const int RoundMoveSelectionSeconds = 10;
+        private const int MoveRevealCountdownSeconds = 5;
+        private const int MovesRevealedPauseBeforeRoundMs = 700;
 
         // Static service references for timeout handling
         private static IRoomService? _staticRoomService;
@@ -108,10 +114,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                 // Join the creator to the GameRoom group
                 await Groups.AddToGroupAsync(Context.ConnectionId, GameRoom.Id);
 
-                // Map to response DTO
                 var roomResponse = _mapper.Map<RoomResponseDto>(GameRoom);
-                // Include PinCode in create response
-                roomResponse.PinCode = GameRoom.PinCode;
+                RoomPinRedaction.RedactPrivatePinUnlessHost(roomResponse, userId, GameRoom);
 
                 // Send success response to caller
                 await Clients.Caller.SendAsync("RoomCreated", new
@@ -136,6 +140,9 @@ namespace Rock_Paper_Scissors_Online.Hubs
             {
                 var rooms = await _roomService.GetAllRoomsAsync();
                 var roomResponses = _mapper.Map<List<RoomResponseDto>>(rooms);
+                var userIdList = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                for (var i = 0; i < roomResponses.Count; i++)
+                    RoomPinRedaction.RedactPrivatePinUnlessHost(roomResponses[i], userIdList, rooms[i]);
 
                 await Clients.Caller.SendAsync("RoomList", new
                 {
@@ -212,6 +219,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                     await Groups.AddToGroupAsync(Context.ConnectionId, GameRoom.Id);
 
                     var roomResponse = _mapper.Map<RoomResponseDto>(GameRoom);
+                    RoomPinRedaction.RedactPrivatePinUnlessHost(roomResponse, userId, GameRoom);
+                    var roomForGroup = RoomPinRedaction.CloneWithoutPin(_mapper, GameRoom);
 
                     // Send success response to the user who joined
                     await Clients.Caller.SendAsync("RoomJoined", new
@@ -226,7 +235,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
                     {
                         success = true,
                         message = $"{username} joined the GameRoom",
-                        data = new { GameRoom = roomResponse }
+                        data = new { GameRoom = roomForGroup }
                     });
 
                     // Broadcast spectator count update
@@ -317,7 +326,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
                 // If GameRoom still exists, notify remaining players
                 if (GameRoom != null)
                 {
-                    var roomResponse = _mapper.Map<RoomResponseDto>(GameRoom);
+                    var roomResponse = RoomPinRedaction.CloneWithoutPin(_mapper, GameRoom);
                     await Clients.Group(roomId).SendAsync("PlayerLeft", new
                     {
                         success = true,
@@ -848,16 +857,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                 var rooms = await _roomService.GetAllRoomsAsync();
                 var roomResponses = _mapper.Map<List<RoomResponseDto>>(rooms);
 
-                // Apply PIN code visibility logic similar to RoomsController
                 foreach (var roomResponse in roomResponses)
-                {
-                    // For SignalR broadcasts, we hide PIN codes for security
-                    // Users can get PIN codes through REST API when needed
-                    if (roomResponse.IsPrivate)
-                    {
-                        roomResponse.PinCode = null;
-                    }
-                }
+                    roomResponse.PinCode = null;
 
                 await Clients.All.SendAsync("RoomListUpdated", new
                 {
@@ -1029,6 +1030,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                     await Groups.AddToGroupAsync(Context.ConnectionId, GameRoom.Id);
 
                     var roomResponse = _mapper.Map<RoomResponseDto>(GameRoom);
+                    RoomPinRedaction.RedactPrivatePinUnlessHost(roomResponse, userId, GameRoom);
+                    var roomForGroup = RoomPinRedaction.CloneWithoutPin(_mapper, GameRoom);
 
                     // Get current phase for the GameRoom
                     var currentPhase = GetCurrentPhase(GameRoom.Id);
@@ -1054,7 +1057,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
                         message = $"{username} joined as spectator",
                         data = new
                         {
-                            GameRoom = roomResponse,
+                            GameRoom = roomForGroup,
                             userId = userId,
                             username = username,
                             spectatorCount = GameRoom.Spectators.Count
@@ -1107,7 +1110,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
                 // If GameRoom still exists, notify remaining players and spectators
                 if (GameRoom != null)
                 {
-                    var roomResponse = _mapper.Map<RoomResponseDto>(GameRoom);
+                    var roomResponse = RoomPinRedaction.CloneWithoutPin(_mapper, GameRoom);
                     await Clients.Group(roomId).SendAsync("SpectatorLeft", new
                     {
                         success = true,
@@ -1345,6 +1348,12 @@ namespace Rock_Paper_Scissors_Online.Hubs
                     return;
                 }
 
+                if (GameRoom.PendingRevealResolution)
+                {
+                    await Clients.Caller.SendAsync("Error", "Đang chờ kết quả ván — không đổi nước đi lúc này.");
+                    return;
+                }
+
                 // Validate move
                 if (!IsValidMove(move))
                 {
@@ -1382,8 +1391,26 @@ namespace Rock_Paper_Scissors_Online.Hubs
                 // Check if both players have made their moves
                 if (GameRoom.Player1!?.CurrentChoice != null && GameRoom.Player2!?.CurrentChoice != null)
                 {
-                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Both players have submitted moves — processing round");
-                    await ProcessRound(roomId, GameRoom);
+                    GameRoom.PendingRevealResolution = true;
+                    var revealEndsAt = DateTime.UtcNow.AddSeconds(MoveRevealCountdownSeconds);
+
+                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Both players submitted — {MoveRevealCountdownSeconds}s hidden reveal then process round");
+
+                    await SendPhaseChangedAsync(roomId, "reveal_countdown");
+
+                    await Clients.Group(roomId).SendAsync("MovesLocked", new
+                    {
+                        success = true,
+                        message = "Moves locked — reveal countdown (no moves shown yet)",
+                        data = new
+                        {
+                            player1Username = GameRoom.Player1!.Username,
+                            player2Username = GameRoom.Player2!.Username,
+                            revealEndsAt = revealEndsAt.ToString("o")
+                        }
+                    });
+
+                    StartRoomTimerStatic(roomId, MoveRevealCountdownSeconds, "move_reveal");
                 }
                 else
                 {
@@ -1398,9 +1425,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
                             username = username,
                             move = move,
                             playerPosition = playerPosition,
-                            waitingForOpponent = true,
-                            player1Move = GameRoom.Player1!?.CurrentChoice,
-                            player2Move = GameRoom.Player2!?.CurrentChoice
+                            waitingForOpponent = true
                         }
                     });
                 }
@@ -1440,6 +1465,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
         {
             try
             {
+                GameRoom.PendingRevealResolution = false;
+
                 var player1Move = GameRoom.Player1!?.CurrentChoice;
                 var player2Move = GameRoom.Player2!?.CurrentChoice;
                 var player1Id = GameRoom.Player1!?.UserId;
@@ -1768,6 +1795,58 @@ namespace Rock_Paper_Scissors_Online.Hubs
         }
 
         /// <summary>
+        /// Hết đếm ngược reveal: gửi nước đi cho client rồi tạm dừng ngắn trước khi xử lý ván.
+        /// </summary>
+        private static async Task CompleteMoveRevealAndProcessRoundAsync(string roomId)
+        {
+            try
+            {
+                if (_staticRoomService == null || _hubContext == null)
+                    return;
+
+                var gr = await _staticRoomService.GetRoomAsync(roomId);
+                if (gr == null)
+                    return;
+
+                if (!gr.PendingRevealResolution)
+                {
+                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m move_reveal skip — PendingRevealResolution already cleared for {roomId}");
+                    return;
+                }
+
+                var p1 = gr.Player1?.CurrentChoice;
+                var p2 = gr.Player2?.CurrentChoice;
+                if (p1 == null || p2 == null)
+                {
+                    gr.PendingRevealResolution = false;
+                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m move_reveal: missing moves, falling back to timeout handling for {roomId}");
+                    await ProcessMoveTimeoutStatic(roomId);
+                    return;
+                }
+
+                await _hubContext.Clients.Group(roomId).SendAsync("MovesRevealed", new
+                {
+                    success = true,
+                    message = "Moves revealed",
+                    data = new
+                    {
+                        player1Move = p1,
+                        player2Move = p2,
+                        player1Username = gr.Player1!.Username,
+                        player2Username = gr.Player2!.Username
+                    }
+                });
+
+                await Task.Delay(MovesRevealedPauseBeforeRoundMs);
+                await ProcessRoundStatic(roomId, gr);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Error in CompleteMoveRevealAndProcessRoundAsync: {ex.Message}");
+            }
+        }
+
+        /// <summary>
         /// Process move timeout directly in timer callback
         /// </summary>
         private async Task ProcessMoveTimeout(string roomId)
@@ -1896,9 +1975,12 @@ namespace Rock_Paper_Scissors_Online.Hubs
                 // Check if GameRoom is in correct state for processing
                 if (GameRoom.Status != RoomStatus.Playing)
                 {
+                    GameRoom.PendingRevealResolution = false;
                     Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m GameRoom {roomId} is not in Playing state ({GameRoom.Status}), skipping round processing");
                     return;
                 }
+
+                GameRoom.PendingRevealResolution = false;
 
                 var player1Move = GameRoom.Player1!?.CurrentChoice;
                 var player2Move = GameRoom.Player2!?.CurrentChoice;
@@ -2390,8 +2472,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                             await SendPhaseChangedAsync(roomId, "round_active");
 
                             // Start the next round timer
-                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} starting round_active timer (7 seconds)");
-                            StartRoomTimerStatic(roomId, 7, "round_active");
+                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} starting round_active timer ({RoundMoveSelectionSeconds} seconds)");
+                            StartRoomTimerStatic(roomId, RoundMoveSelectionSeconds, "round_active");
                         });
                     }
                 }
@@ -2710,16 +2792,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                 var rooms = await _staticRoomService.GetAllRoomsAsync();
                 var roomResponses = _staticMapper.Map<List<RoomResponseDto>>(rooms);
 
-                // Apply PIN code visibility logic similar to RoomsController
                 foreach (var roomResponse in roomResponses)
-                {
-                    // For SignalR broadcasts, we hide PIN codes for security
-                    // Users can get PIN codes through REST API when needed
-                    if (roomResponse.IsPrivate)
-                    {
-                        roomResponse.PinCode = null;
-                    }
-                }
+                    roomResponse.PinCode = null;
 
                 await _hubContext.Clients.All.SendAsync("RoomListUpdated", new
                 {
@@ -2834,7 +2908,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
         /// <summary>
         /// Place a bet on a game
         /// </summary>
-        public async Task PlaceBet(string roomId, decimal amount, string playerId)
+        public async Task PlaceBet(string roomId, decimal amount, string playerId, string? pinCode = null)
         {
             try
             {
@@ -2848,6 +2922,12 @@ namespace Rock_Paper_Scissors_Online.Hubs
                     return;
                 }
 
+                if (!BettingService.AllowedBetStakes.Contains(amount))
+                {
+                    await Clients.Caller.SendAsync("Error", $"Mức cược không hợp lệ. Chọn: {string.Join(", ", BettingService.AllowedBetStakes.OrderBy(x => x))}");
+                    return;
+                }
+
                 var GameRoom = await _roomService.GetRoomAsync(roomId);
                 if (GameRoom == null)
                 {
@@ -2855,13 +2935,12 @@ namespace Rock_Paper_Scissors_Online.Hubs
                     return;
                 }
 
-                // Betting is always allowed now
-
-                // Place bet
                 var betRequest = new BetRequestDto
                 {
-                    PlayerId = userId, // Spectator who placed the bet
-                    TargetPlayerId = playerId, // Game player they bet on
+                    PlayerId = userId,
+                    TargetPlayerId = playerId,
+                    Amount = amount,
+                    PinCode = pinCode
                 };
 
                 var betResponse = await _bettingService.PlaceBet(roomId, betRequest);
@@ -3015,8 +3094,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                 await SendPhaseChangedAsync(roomId, "round_active");
 
                 // Start the next round timer
-                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} starting round_active timer (7 seconds)");
-                await StartRoomTimer(roomId, 7, "round_active");
+                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} starting round_active timer ({RoundMoveSelectionSeconds} seconds)");
+                await StartRoomTimer(roomId, RoundMoveSelectionSeconds, "round_active");
             }
             catch (Exception ex)
             {
@@ -3217,8 +3296,15 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                                 // If both players have moves, this is animation phase - process the round
                                                 if (player1Move != null && player2Move != null)
                                                 {
-                                                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Animation phase complete - processing round for GameRoom {roomId}");
-                                                    await ProcessRoundStatic(roomId, GameRoom);
+                                                    if (GameRoom.PendingRevealResolution)
+                                                    {
+                                                        Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Round timer expired but reveal countdown owns resolution — skipping for GameRoom {roomId}");
+                                                    }
+                                                    else
+                                                    {
+                                                        Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Animation phase complete - processing round for GameRoom {roomId}");
+                                                        await ProcessRoundStatic(roomId, GameRoom);
+                                                    }
                                                 }
                                                 else
                                                 {
@@ -3231,6 +3317,11 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                         {
                                             Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Error processing round active timeout: {ex.Message}");
                                         }
+                                    }
+                                    else if (timerType == "move_reveal")
+                                    {
+                                        Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m move_reveal expired for GameRoom {roomId}");
+                                        await CompleteMoveRevealAndProcessRoundAsync(roomId);
                                     }
                                     // Removed waiting_opponent and waiting_spectators timers
                                     // These phases now wait for user actions instead of timers
@@ -3283,8 +3374,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                             await SendPhaseChangedAsync(roomId, "round_active");
 
                                             // Start the first round timer (7 seconds)
-                                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Starting round_active timer (7 seconds)");
-                                            StartRoomTimerStatic(roomId, 7, "round_active");
+                                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Starting round_active timer ({RoundMoveSelectionSeconds} seconds)");
+                                            StartRoomTimerStatic(roomId, RoundMoveSelectionSeconds, "round_active");
                                         }
                                         catch (Exception ex)
                                         {
@@ -3589,6 +3680,18 @@ namespace Rock_Paper_Scissors_Online.Hubs
                 // Initialize timer value
                 _roomTimerValues[roomId] = duration;
 
+                if (_hubContext != null)
+                {
+                    _ = _hubContext.Clients.Group(roomId).SendAsync("TimerStarted", new
+                    {
+                        success = true,
+                        roomId = roomId,
+                        duration = duration,
+                        timerType = timerType,
+                        currentTime = duration
+                    });
+                }
+
                 // Create timer that updates every second
                 var timer = new Timer(async _ =>
                 {
@@ -3667,8 +3770,15 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                             // If both players have moves, this is animation phase - process the round
                                             if (player1Move != null && player2Move != null)
                                             {
-                                                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Animation phase complete - processing round for GameRoom {roomId}");
-                                                await ProcessRoundStatic(roomId, GameRoom);
+                                                if (GameRoom.PendingRevealResolution)
+                                                {
+                                                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Round timer expired but reveal countdown owns resolution — skipping for GameRoom {roomId}");
+                                                }
+                                                else
+                                                {
+                                                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Animation phase complete - processing round for GameRoom {roomId}");
+                                                    await ProcessRoundStatic(roomId, GameRoom);
+                                                }
                                             }
                                             else
                                             {
@@ -3681,6 +3791,11 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                     {
                                         Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Error processing round active timeout: {ex.Message}");
                                     }
+                                }
+                                else if (timerType == "move_reveal")
+                                {
+                                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m move_reveal expired for GameRoom {roomId}");
+                                    await CompleteMoveRevealAndProcessRoundAsync(roomId);
                                 }
                                 else if (timerType == "waiting_opponent")
                                 {
@@ -3780,8 +3895,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                         await SendPhaseChangedAsync(roomId, "round_active");
 
                                         // Start the first round timer (7 seconds)
-                                        Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Starting round_active timer (7 seconds)");
-                                        StartRoomTimerStatic(roomId, 7, "round_active");
+                                        Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Starting round_active timer ({RoundMoveSelectionSeconds} seconds)");
+                                        StartRoomTimerStatic(roomId, RoundMoveSelectionSeconds, "round_active");
                                     }
                                     catch (Exception ex)
                                     {

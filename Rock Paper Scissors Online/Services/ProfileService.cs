@@ -77,36 +77,49 @@ namespace Rock_Paper_Scissors_Online.Services
 
         public async Task<GameHistoryResponseDto> GetHistoryPaged(Guid userId, int limit, int offset)
         {
-            // Get all histories where the user is either creator or opponent
             var histories = await _context.Histories
+                .AsNoTracking()
                 .Include(h => h.CreatorUser)
                 .Include(h => h.Opponent)
                 .Where(h => h.CreatorUserId == userId || h.OpponentId == userId)
-                .OrderByDescending(h => h.StartedAt)
+                .OrderByDescending(h => h.FinishedAt)
+                .ThenByDescending(h => h.CreatedAt)
                 .ToListAsync();
 
             var total = histories.Count;
-            var wins = histories.Count(h => h.Status == "Completed" && 
-                ((h.CreatorUserId == userId && h.OpponentScore < h.Points) || 
-                 (h.OpponentId == userId && h.OpponentScore > h.Points)));
-            
-            var paged = histories.Skip(offset).Take(limit);
+
+            static bool IsCompleted(History h) =>
+                string.Equals(h.Status, "Completed", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(h.Status, "Finished", StringComparison.OrdinalIgnoreCase);
+
+            var wins = histories.Count(h => IsCompleted(h) && h.CreatorUserId == userId);
+
+            var paged = histories.Skip(offset).Take(limit).ToList();
 
             return new GameHistoryResponseDto
             {
-                RecentGames = paged.Select(h => new GameHistoryDto
+                RecentGames = paged.Select(h =>
                 {
-                    Id = h.Id.ToString(),
-                    Opponent = h.CreatorUserId == userId ? 
-                        (h.Opponent?.Username ?? "Unknown") : 
-                        (h.CreatorUser?.Username ?? "Unknown"),
-                    Result = h.Status == "Completed" ? 
-                        ((h.CreatorUserId == userId && h.OpponentScore < h.Points) || 
-                         (h.OpponentId == userId && h.OpponentScore > h.Points)) ? "Win" : "Loss" : 
-                        h.Status,
-                    Rounds = h.MaxRounds,
-                    Timestamp = h.StartedAt.UtcDateTime,
-                    PointsEarned = h.CreatorUserId == userId ? h.Points : -h.Points
+                    var completed = IsCompleted(h);
+                    var won = completed && h.CreatorUserId == userId;
+                    var lost = completed && h.OpponentId == userId;
+                    return new GameHistoryDto
+                    {
+                        Id = h.Id.ToString(),
+                        Opponent = h.CreatorUserId == userId
+                            ? (h.Opponent?.Username ?? "Unknown")
+                            : (h.CreatorUser?.Username ?? "Unknown"),
+                        Result = !completed
+                            ? h.Status
+                            : won
+                                ? "Win"
+                                : lost
+                                    ? "Loss"
+                                    : h.Status,
+                        Rounds = h.MaxRounds,
+                        Timestamp = h.FinishedAt != default ? h.FinishedAt.UtcDateTime : h.StartedAt.UtcDateTime,
+                        PointsEarned = won ? h.Points : lost ? -h.Points : 0
+                    };
                 }).ToList(),
                 TotalGames = total,
                 WinRate = total > 0 ? (double)wins / total * 100 : 0.0

@@ -115,6 +115,14 @@ else
                                         @bind="_createPrivate" />
                                     <span>Phòng riêng <span class="rps-lobby-check-hint">(PIN)</span></span>
                                 </label>
+                                @if (_createPrivate)
+                                {
+                                    <p class="rps-lobby-pin-create-hint mb-0">
+                                        Hệ thống tự tạo mã PIN 6 ký tự. <strong class="text-light">Chỉ chủ phòng</strong> thấy mã
+                                        trên màn chơi và trong danh sách. Người vào sau nhập PIN trong hộp thoại khi bấm
+                                        <strong class="text-light">Vào phòng</strong>.
+                                    </p>
+                                }
                                 <button class="btn rps-lobby-create-btn" type="button" disabled="@_busy"
                                     @onclick="CreateAsync">
                                     <i class="bi bi-lightning-charge-fill me-1" aria-hidden="true"></i>Tạo phòng
@@ -191,24 +199,23 @@ else
                                             }
                                         </td>
                                         <td class="text-end text-nowrap rps-lobby-actions">
-                                            @if (r.IsPrivate)
+                                            @if (r.IsPrivate && IsRoomHost(r) && !string.IsNullOrEmpty(r.PinCode))
                                             {
-                                                <input class="form-control form-control-sm rps-lobby-pin" placeholder="PIN"
-                                                    value="@PinFor(r.Id)"
-                                                    @oninput="e => SetPin(r.Id, e.Value?.ToString() ?? string.Empty)"
-                                                    aria-label="Mã PIN phòng" />
+                                                <span class="rps-lobby-pin-badge me-1" title="Chỉ chủ phòng thấy mã này">
+                                                    PIN <code>@r.PinCode</code>
+                                                </span>
                                             }
                                             @if (inRoom)
                                             {
-                                                <button class="btn btn-sm rps-lobby-btn-secondary ms-1" type="button" disabled="@_busy"
-                                                    @onclick="() => JoinAsync(r)">
+                                                <button class="btn btn-sm rps-lobby-btn-secondary" type="button" disabled="@_busy"
+                                                    @onclick="() => OnEnterRoomClickAsync(r)">
                                                     <i class="bi bi-box-arrow-in-right me-1" aria-hidden="true"></i>Vào lại
                                                 </button>
                                             }
                                             else
                                             {
-                                                <button class="btn btn-sm rps-lobby-btn-join ms-1" type="button" disabled="@_busy"
-                                                    @onclick="() => JoinAsync(r)">
+                                                <button class="btn btn-sm rps-lobby-btn-join" type="button" disabled="@_busy"
+                                                    @onclick="() => OnEnterRoomClickAsync(r)">
                                                     <i class="bi bi-play-fill me-1" aria-hidden="true"></i>Vào phòng
                                                 </button>
                                             }
@@ -220,8 +227,64 @@ else
                     </table>
                 </div>
             </section>
+
+            <section class="rps-lobby-panel rps-lobby-panel--betting" id="betting-rooms">
+                <div class="rps-lobby-list-toolbar">
+                    <h2 class="rps-lobby-list-title">
+                        <i class="bi bi-coin me-2" aria-hidden="true"></i>Trận đang đấu — xem &amp; cược
+                    </h2>
+                </div>
+                <p class="small text-muted mb-2 px-1">Chỉ phòng bật cược và đang có 2 người chơi. Phòng PIN: cần mã khi đặt cược.</p>
+                @if (BettingRooms.Count == 0)
+                {
+                    <p class="small text-muted px-1 mb-0">Hiện không có phòng phù hợp.</p>
+                }
+                else
+                {
+                    <ul class="list-unstyled mb-0 px-1">
+                        @foreach (var r in BettingRooms)
+                        {
+                            <li class="d-flex flex-wrap align-items-center justify-content-between gap-2 py-2 border-bottom border-secondary border-opacity-25">
+                                <span class="fw-semibold">@r.Name</span>
+                                <a class="btn btn-sm rps-lobby-btn-join" href="@WatchHref(r)">Xem / cược</a>
+                            </li>
+                        }
+                    </ul>
+                }
+            </section>
         </div>
+
+        @if (_ready)
+        {
+            <RpsDualChatPanel />
+        }
     </div>
+
+    @if (_pinModalRoom != null)
+    {
+        <div class="rps-lobby-modal-backdrop" @onclick="ClosePinModal" aria-hidden="true"></div>
+        <div class="rps-lobby-modal" role="dialog" aria-modal="true" aria-labelledby="rps-pin-modal-title">
+            <h3 id="rps-pin-modal-title" class="rps-lobby-modal-title">
+                <i class="bi bi-shield-lock me-2" aria-hidden="true"></i>Phòng riêng
+            </h3>
+            <p class="rps-lobby-modal-text small mb-2">
+                Phòng <strong>@_pinModalRoom.Name</strong> — nhập mã PIN do chủ phòng gửi.
+            </p>
+            <label class="rps-lobby-label" for="rps-pin-input">Mã PIN</label>
+            <input id="rps-pin-input" class="form-control rps-lobby-modal-input mb-2" maxlength="8" autocomplete="off"
+                placeholder="VD: ABC12X" @bind="_pinModalValue" @bind:event="oninput" />
+            @if (!string.IsNullOrEmpty(_pinModalError))
+            {
+                <p class="small text-danger mb-2 mb-md-3">@_pinModalError</p>
+            }
+            <div class="rps-lobby-modal-actions">
+                <button type="button" class="btn rps-lobby-btn-secondary" @onclick="ClosePinModal" disabled="@_busy">Hủy</button>
+                <button type="button" class="btn rps-lobby-btn-join" @onclick="ConfirmPinModalAsync" disabled="@_busy">
+                    @(_busy ? "Đang xử lý…" : "Vào phòng")
+                </button>
+            </div>
+        </div>
+    }
 }
 
 @code {
@@ -242,6 +305,17 @@ else
     private bool _pointsLoading = true;
     private bool _pointsLoadFailed;
     private bool _pointsHydrated;
+
+    private RoomResponseDto? _pinModalRoom;
+    private PinModalIntent _pinModalIntent;
+    private string _pinModalValue = "";
+    private string? _pinModalError;
+
+    private enum PinModalIntent
+    {
+        JoinRoom,
+        ReturnToPlay
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -283,6 +357,13 @@ else
         || string.Equals(r.Player2?.UserId, uid, StringComparison.OrdinalIgnoreCase);
     }
 
+    private bool IsRoomHost(RoomResponseDto r)
+    {
+        if (_session is null)
+            return false;
+        return string.Equals(r.CreatedBy, _session.UserId.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string FormatRoomStatus(string? status)
     {
         if (string.IsNullOrWhiteSpace(status))
@@ -319,6 +400,21 @@ else
         };
     }
 
+    private IReadOnlyList<RoomResponseDto> BettingRooms =>
+        _rooms.Where(CanWatchBet).OrderBy(r => r.Name).ToList();
+
+    private static bool CanWatchBet(RoomResponseDto r)
+    {
+        if (!r.AllowBetting || r.CurrentPlayers < 2 || r.Player1 == null || r.Player2 == null)
+            return false;
+        var st = r.Status?.Trim() ?? "";
+        return st.Equals("Playing", StringComparison.OrdinalIgnoreCase)
+               || st.Equals("InProgress", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string WatchHref(RoomResponseDto r) =>
+        $"/watch/{Uri.EscapeDataString(r.Id)}";
+
     private async Task RefreshRoomsAsync()
     {
         _message = null;
@@ -339,6 +435,8 @@ else
             {
                 if (!_pinByRoom.ContainsKey(r.Id))
                     _pinByRoom[r.Id] = "";
+                if (r.IsPrivate && IsRoomHost(r) && !string.IsNullOrEmpty(r.PinCode))
+                    _pinByRoom[r.Id] = r.PinCode;
             }
         }
         finally
@@ -373,9 +471,120 @@ else
         _pointsLoading = false;
     }
 
-    private string PinFor(string roomId) => _pinByRoom.TryGetValue(roomId, out var p) ? p : "";
+    private void OpenPinModal(RoomResponseDto room, PinModalIntent intent)
+    {
+        _pinModalRoom = room;
+        _pinModalIntent = intent;
+        _pinModalValue = _pinByRoom.TryGetValue(room.Id, out var p) ? p : "";
+        _pinModalError = null;
+    }
 
-    private void SetPin(string roomId, string value) => _pinByRoom[roomId] = value;
+    private void ClosePinModal()
+    {
+        _pinModalRoom = null;
+        _pinModalValue = "";
+        _pinModalError = null;
+    }
+
+    private static string NormalizePin(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s))
+            return "";
+        return s.Trim().ToUpperInvariant();
+    }
+
+    private async Task ConfirmPinModalAsync()
+    {
+        if (_pinModalRoom == null)
+            return;
+
+        _pinModalError = null;
+        var pin = NormalizePin(_pinModalValue);
+        if (string.IsNullOrEmpty(pin))
+        {
+            _pinModalError = "Nhập mã PIN.";
+            return;
+        }
+
+        _pinByRoom[_pinModalRoom.Id] = pin;
+        var room = _pinModalRoom;
+        var intent = _pinModalIntent;
+        ClosePinModal();
+
+        if (intent == PinModalIntent.JoinRoom)
+            await TryJoinAndNavigateAsync(room, pin);
+        else
+            Nav.NavigateTo($"/play/{room.Id}?pin={Uri.EscapeDataString(pin)}");
+    }
+
+    private async Task OnEnterRoomClickAsync(RoomResponseDto r)
+    {
+        if (IsCurrentUserInRoom(r))
+            await GoToPlayAsync(r);
+        else if (!r.IsPrivate)
+            await TryJoinAndNavigateAsync(r, null);
+        else
+            OpenPinModal(r, PinModalIntent.JoinRoom);
+    }
+
+    private async Task GoToPlayAsync(RoomResponseDto r)
+    {
+        _busy = true;
+        try
+        {
+            string? pin = null;
+            if (r.IsPrivate)
+            {
+                if (IsRoomHost(r))
+                {
+                    var (ok, room, _) = await Api.GetRoomAsync(r.Id);
+                    pin = ok ? room?.PinCode : null;
+                }
+                else
+                {
+                    pin = _pinByRoom.TryGetValue(r.Id, out var p) ? p : null;
+                    if (string.IsNullOrWhiteSpace(pin))
+                    {
+                        OpenPinModal(r, PinModalIntent.ReturnToPlay);
+                        return;
+                    }
+                }
+            }
+
+            var q = string.IsNullOrWhiteSpace(pin) ? "" : $"?pin={Uri.EscapeDataString(pin)}";
+            Nav.NavigateTo($"/play/{r.Id}{q}");
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task TryJoinAndNavigateAsync(RoomResponseDto r, string? pin)
+    {
+        _busy = true;
+        _message = null;
+        try
+        {
+            var (ok, room, err) = await Api.JoinRoomAsync(r.Id, r.IsPrivate ? pin : null);
+            if (!ok || room == null)
+            {
+                _messageAlertClass = "rps-lobby-toast--danger";
+                _message = err ?? "Không vào được phòng";
+                return;
+            }
+
+            if (r.IsPrivate && !string.IsNullOrWhiteSpace(pin))
+                _pinByRoom[r.Id] = pin!;
+
+            var q = r.IsPrivate && !string.IsNullOrWhiteSpace(pin) ? $"?pin={Uri.EscapeDataString(pin!)}" : "";
+            Nav.NavigateTo($"/play/{room.Id}{q}");
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
 
     private async Task CreateAsync()
     {
@@ -407,30 +616,12 @@ else
                 return;
             }
 
-            Nav.NavigateTo($"/play/{room.Id}", forceLoad: false);
-        }
-        finally
-        {
-            _busy = false;
-        }
-    }
+            if (room.IsPrivate && !string.IsNullOrEmpty(room.PinCode))
+                _pinByRoom[room.Id] = room.PinCode;
 
-    private async Task JoinAsync(RoomResponseDto r)
-    {
-        _busy = true;
-        _message = null;
-        try
-        {
-            var pin = r.IsPrivate ? _pinByRoom.GetValueOrDefault(r.Id) : null;
-            var (ok, room, err) = await Api.JoinRoomAsync(r.Id, string.IsNullOrWhiteSpace(pin) ? null : pin);
-            if (!ok || room == null)
-            {
-                _messageAlertClass = "rps-lobby-toast--danger";
-                _message = err ?? "Không vào được phòng";
-                return;
-            }
-
-            var q = r.IsPrivate && !string.IsNullOrWhiteSpace(pin) ? $"?pin={Uri.EscapeDataString(pin!)}" : "";
+            var q = room.IsPrivate && !string.IsNullOrEmpty(room.PinCode)
+                ? $"?pin={Uri.EscapeDataString(room.PinCode)}"
+                : "";
             Nav.NavigateTo($"/play/{room.Id}{q}", forceLoad: false);
         }
         finally

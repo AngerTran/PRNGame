@@ -1,4 +1,5 @@
 using Rock_Paper_Scissors_Online.DTOs;
+using Rock_Paper_Scissors_Online.Enums;
 using Rock_Paper_Scissors_Online.Models;
 using Rock_Paper_Scissors_Online.Services.Interfaces;
 
@@ -6,6 +7,9 @@ namespace Rock_Paper_Scissors_Online.Services
 {
     public class BettingService : IBettingService
     {
+        /// <summary>Mức cược cố định (xu) — FE chỉ hiển thị các giá trị này.</summary>
+        public static readonly HashSet<decimal> AllowedBetStakes = new[] { 25m, 50m, 100m, 150m }.ToHashSet();
+
         private static List<Bet> _bets = new();
         private static List<GameRoom> _rooms = new();
         private static decimal _totalClaimed = 0;
@@ -41,6 +45,23 @@ namespace Rock_Paper_Scissors_Online.Services
         }
         
         Console.WriteLine($"[BETTING AUDIT] Room found - PointsPerWin: {room.PointsPerWin}, Player1: {room.Player1?.UserId}, Player2: {room.Player2?.UserId}");
+
+        if (!room.AllowBetting)
+            throw new InvalidOperationException("Phòng này không bật cược.");
+
+        if (room.Status != RoomStatus.Playing && room.Status != RoomStatus.InProgress)
+            throw new InvalidOperationException("Chỉ được cược khi trận đang diễn ra.");
+
+        if (!AllowedBetStakes.Contains(request.Amount))
+            throw new ArgumentException($"Mức cược không hợp lệ. Chọn một trong: {string.Join(", ", AllowedBetStakes.OrderBy(x => x))}.");
+
+        if (room.IsPrivate)
+        {
+            var proof = (request.PinCode ?? "").Trim();
+            if (string.IsNullOrEmpty(room.PinCode) ||
+                !string.Equals(proof, room.PinCode.Trim(), StringComparison.OrdinalIgnoreCase))
+                throw new UnauthorizedAccessException("Phòng riêng: cần mã PIN đúng mới được cược.");
+        }
 
         // Validate request parameters
         if (string.IsNullOrEmpty(request.PlayerId))
@@ -81,14 +102,9 @@ namespace Rock_Paper_Scissors_Online.Services
         
         Console.WriteLine($"[BETTING AUDIT] Validation passed - No existing bet found for player {request.PlayerId} in game {gameId}");
 
-        // Use room's PointsPerWin as the fixed bet amount
-        var betAmount = room.PointsPerWin;
-
-        // Validate bet amount
+        var betAmount = request.Amount;
         if (betAmount <= 0)
-        {
-            throw new ArgumentException("Invalid bet amount. Bet amount must be greater than 0.");
-        }
+            throw new ArgumentException("Invalid bet amount.");
 
         // Check if user has sufficient points before placing bet
         try
@@ -115,8 +131,8 @@ namespace Rock_Paper_Scissors_Online.Services
         {
             Console.WriteLine($"[BETTING SERVICE] Subtracting {betAmount} points from spectator {request.PlayerId} for bet on {request.TargetPlayerId}");
             await _pointTransactionService.SubtractPointsAsync(
-                Guid.Parse(request.PlayerId), 
-                betAmount, 
+                Guid.Parse(request.PlayerId),
+                (int)betAmount,
                 "Bet Placed"
             );
         }
@@ -311,12 +327,6 @@ namespace Rock_Paper_Scissors_Online.Services
             }
 
             // Get the 2 players in the game
-            var playerIds = bets.Select(b => b.PlayerId).Distinct().Take(2).ToList();
-            if (playerIds.Count < 2)
-            {
-                return new ClaimResponseDto { Winnings = 0, TotalClaimed = _totalClaimed };
-            }
-
             var totalPool = bets.Sum(b => b.Amount);
             var totalWinnerBets = bets
                 .Where(b => b.TargetPlayerId == winnerId)

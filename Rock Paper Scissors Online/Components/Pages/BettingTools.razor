@@ -20,16 +20,20 @@ else
         <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="StatAsync">GET statistics</button>
     </div>
     <div class="row g-2 align-items-end mb-2" style="max-width:36rem">
-        <div class="col-md-4">
-            <label class="form-label small mb-0">Amount</label>
+        <div class="col-md-3">
+            <label class="form-label small mb-0">Mức cược (25/50/100/150)</label>
             <input type="number" class="form-control form-control-sm" @bind="_amt" />
         </div>
-        <div class="col-md-5">
+        <div class="col-md-4">
             <label class="form-label small mb-0">targetPlayerId</label>
             <input class="form-control form-control-sm" @bind="_target" />
         </div>
         <div class="col-md-3">
-            <button type="button" class="btn btn-sm btn-primary w-100" @onclick="BetAsync">POST place-bet</button>
+            <label class="form-label small mb-0">PIN (phòng riêng)</label>
+            <input class="form-control form-control-sm" @bind="_pin" placeholder="tuỳ chọn" />
+        </div>
+        <div class="col-md-2">
+            <button type="button" class="btn btn-sm btn-primary w-100 mt-4" @onclick="BetAsync">POST</button>
         </div>
     </div>
     <JsonApiResult Json="@_j" Error="@_e" />
@@ -38,8 +42,9 @@ else
 @code {
     private PortalAuthState? _session;
     private string _roomId = "";
-    private decimal _amt = 10;
+    private decimal _amt = 50;
     private string _target = "";
+    private string _pin = "";
     private string? _j, _e;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -66,7 +71,7 @@ else
     private async Task BetAsync()
     {
         _e = null; _j = null;
-        var (ok, body, err) = await Api.BettingPlaceAsync(_roomId, _amt, _target);
+        var (ok, body, err) = await Api.BettingPlaceAsync(_roomId, _amt, _target, string.IsNullOrWhiteSpace(_pin) ? null : _pin);
         _j = ok ? body : null; _e = err;
     }
 }

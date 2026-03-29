@@ -506,9 +506,9 @@ public sealed class GameApiService : IDisposable
     public Task<(bool Ok, string Body, string? Error)> GameProcessResultAsync(string roomId, string? winnerId) =>
         CallAsync(HttpMethod.Post, $"api/v1/game/rooms/{Uri.EscapeDataString(roomId)}/result", new GameResultRequest { WinnerId = winnerId });
 
-    public Task<(bool Ok, string Body, string? Error)> BettingPlaceAsync(string roomId, decimal amount, string targetPlayerId) =>
+    public Task<(bool Ok, string Body, string? Error)> BettingPlaceAsync(string roomId, decimal amount, string targetPlayerId, string? pinCode = null) =>
         CallAsync(HttpMethod.Post, $"api/v1/Betting/rooms/{Uri.EscapeDataString(roomId)}/place-bet",
-            new PlaceBetRequest { Amount = amount, TargetPlayerId = targetPlayerId });
+            new PlaceBetRequest { Amount = amount, TargetPlayerId = targetPlayerId, PinCode = string.IsNullOrWhiteSpace(pinCode) ? null : pinCode.Trim() });
 
     public Task<(bool Ok, string Body, string? Error)> BettingGetPoolAsync(string roomId) =>
         CallAsync(HttpMethod.Get, $"api/v1/Betting/rooms/{Uri.EscapeDataString(roomId)}/pool");

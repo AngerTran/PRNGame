@@ -1,11 +1,14 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Rock_Paper_Scissors_Online.DTOs;
 using Rock_Paper_Scissors_Online.Services.Interfaces;
+using System.Security.Claims;
 
 namespace Rock_Paper_Scissors_Online.Controllers
 {
     [Route("api/v1/profile")]
     [ApiController]
+    [Authorize]
     public class ProfileController : ControllerBase
     {
         private readonly IProfileService _profileService;
@@ -58,6 +61,10 @@ namespace Rock_Paper_Scissors_Online.Controllers
         {
             if (!Guid.TryParse(userId, out var guid))
                 return BadRequest(new { message = "'userId' must be a valid GUID" });
+
+            var caller = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (caller == null || !string.Equals(caller, userId, StringComparison.OrdinalIgnoreCase))
+                return Forbid();
 
             var history = await _profileService.GetHistoryPaged(guid, limit, offset);
 

@@ -49,7 +49,7 @@ else
         <ul class="list-group small">
             @foreach (var g in _hist?.RecentGames ?? new List<GameHistoryDto>())
             {
-                <li class="list-group-item">@g.Opponent — @g.Result (@g.Timestamp.ToLocalTime():g)</li>
+                <li class="list-group-item">@g.Opponent — @g.Result · @(g.PointsEarned >= 0 ? "+" : "")@g.PointsEarned điểm · @g.Timestamp.ToLocalTime():g</li>
             }
         </ul>
         <JsonApiResult Json="@_histRaw" Error="@_histErr" />
@@ -75,17 +75,7 @@ else
                     <p class="mb-0">Điểm: @_otherProfile.User.Points · Trận: @_otherProfile.Stats.GamesPlayed (thắng @_otherProfile.Stats.GamesWon)</p>
                 </div>
             </div>
-            <button type="button" class="btn btn-sm btn-outline-primary mb-2" @onclick="LoadOtherHistoryAsync">Tải lịch sử (profile/.../history)</button>
-            <ul class="list-group small">
-                @foreach (var g in _otherHist?.RecentGames ?? new List<GameHistoryDto>())
-                {
-                    <li class="list-group-item">@g.Opponent — @g.Result (@g.Timestamp.ToLocalTime():g)</li>
-                }
-            </ul>
-            @if (!string.IsNullOrEmpty(_otherHistErr))
-            {
-                <p class="text-danger small mt-2">@_otherHistErr</p>
-            }
+            <p class="small text-muted mb-0">Lịch sử trận qua <code>GET .../history</code> chỉ cho tài khoản của bạn (bảo mật). Xem hồ sơ công khai ở tab trên.</p>
         }
     }
 }
@@ -103,8 +93,6 @@ else
     private string _otherGuid = "";
     private CompleteProfileDto? _otherProfile;
     private string? _otherErr;
-    private GameHistoryResponseDto? _otherHist;
-    private string? _otherHistErr;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -149,8 +137,6 @@ else
     {
         _otherErr = null;
         _otherProfile = null;
-        _otherHist = null;
-        _otherHistErr = null;
         if (!Guid.TryParse(_otherGuid.Trim(), out var gid))
         {
             _otherErr = "GUID không hợp lệ.";
@@ -165,19 +151,4 @@ else
         _otherProfile = p;
     }
 
-    private async Task LoadOtherHistoryAsync()
-    {
-        _otherHistErr = null;
-        _otherHist = null;
-        if (!Guid.TryParse(_otherGuid.Trim(), out var gid))
-        {
-            _otherHistErr = "GUID không hợp lệ.";
-            return;
-        }
-        var (ok, h, err) = await Api.GetProfileHistoryAsync(gid, 30, 0);
-        if (!ok)
-            _otherHistErr = err;
-        else
-            _otherHist = h;
-    }
 }

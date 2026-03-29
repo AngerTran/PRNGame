@@ -1,7 +1,9 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Rock_Paper_Scissors_Online.DTOs;
 using Rock_Paper_Scissors_Online.Hubs;
+using Rock_Paper_Scissors_Online.Services;
 using Rock_Paper_Scissors_Online.Services.Interfaces;
 using System.Security.Claims;
 
@@ -9,6 +11,7 @@ namespace Rock_Paper_Scissors_Online.Controllers
 {
     [ApiController]
     [Route("api/v1/[controller]")]
+    [Authorize]
     public class BettingController : ControllerBase
     {
         private readonly IBettingService _bettingService;
@@ -29,45 +32,36 @@ namespace Rock_Paper_Scissors_Online.Controllers
             {
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
-                {
                     return Unauthorized(new { success = false, message = "User not authenticated" });
-                }
 
-                Console.WriteLine($"[BETTING API] Placing bet for room {roomId}, user {userId}, amount: {request.Amount}, target: {request.TargetPlayerId}");
-
-                // Validate bet amount
-                if (request.Amount <= 0)
+                if (!BettingService.AllowedBetStakes.Contains(request.Amount))
                 {
-                    return BadRequest(new { success = false, message = "Bet amount must be greater than 0" });
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = $"Mức cược phải là một trong: {string.Join(", ", BettingService.AllowedBetStakes.OrderBy(x => x))}"
+                    });
                 }
 
-                // Get room details
                 var room = await _roomService.GetRoomAsync(roomId);
                 if (room == null)
-                {
                     return NotFound(new { success = false, message = "Room not found" });
-                }
 
-                // Validate target player
                 if (request.TargetPlayerId != room.Player1?.UserId && request.TargetPlayerId != room.Player2?.UserId)
-                {
                     return BadRequest(new { success = false, message = "Invalid target player" });
-                }
 
-                // Place bet via service
                 var betRequest = new BetRequestDto
                 {
-                    PlayerId = userId, // Spectator who placed the bet
-                    TargetPlayerId = request.TargetPlayerId // Game player they bet on
-                    // Amount is now fixed to room's PointsPerWin
+                    PlayerId = userId,
+                    TargetPlayerId = request.TargetPlayerId,
+                    Amount = request.Amount,
+                    PinCode = request.PinCode
                 };
-                var betResult = await _bettingService.PlaceBet(roomId, betRequest);
-                // Note: BetResponseDto doesn't have Success/Message properties, so we'll assume success if no exception
 
-                // Get updated betting pool
+                var betResult = await _bettingService.PlaceBet(roomId, betRequest);
+
                 var bettingPool = _bettingService.GetPool(roomId, room.Player1?.UserId, room.Player2?.UserId);
 
-                // Broadcast bet placed via SignalR
                 var betData = new
                 {
                     success = true,
@@ -85,9 +79,7 @@ namespace Rock_Paper_Scissors_Online.Controllers
                 };
 
                 await _gameHubContext.Clients.Group(roomId).SendAsync("BetPlaced", betData);
-                Console.WriteLine($"[BETTING API] Bet placed and broadcasted to room {roomId}");
 
-                // Also broadcast updated betting pool
                 await _gameHubContext.Clients.Group(roomId).SendAsync("BettingPoolUpdated", new
                 {
                     success = true,
@@ -100,6 +92,18 @@ namespace Rock_Paper_Scissors_Online.Controllers
                 });
 
                 return Ok(new { success = true, message = "Bet placed successfully", data = betData.data });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { success = false, message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -115,25 +119,15 @@ namespace Rock_Paper_Scissors_Online.Controllers
             {
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
-                {
                     return Unauthorized(new { success = false, message = "User not authenticated" });
-                }
 
-                Console.WriteLine($"[BETTING API] Getting betting pool for room {roomId}");
-
-                // Get room details
                 var room = await _roomService.GetRoomAsync(roomId);
                 if (room == null)
-                {
                     return NotFound(new { success = false, message = "Room not found" });
-                }
 
-                // Get betting pool via service with actual player IDs
                 var bettingPool = _bettingService.GetPool(roomId, room.Player1?.UserId, room.Player2?.UserId);
                 if (bettingPool == null)
-                {
                     return NotFound(new { success = false, message = "Betting pool not found" });
-                }
 
                 return Ok(new { success = true, data = bettingPool });
             }
@@ -151,25 +145,15 @@ namespace Rock_Paper_Scissors_Online.Controllers
             {
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
-                {
                     return Unauthorized(new { success = false, message = "User not authenticated" });
-                }
 
-                Console.WriteLine($"[BETTING API] Getting betting statistics for room {roomId}");
-
-                // Get room details
                 var room = await _roomService.GetRoomAsync(roomId);
                 if (room == null)
-                {
                     return NotFound(new { success = false, message = "Room not found" });
-                }
 
-                // Get betting statistics via service
                 var statistics = _bettingService.GetBettingStatistics(roomId);
                 if (statistics == null)
-                {
                     return NotFound(new { success = false, message = "Betting statistics not found" });
-                }
 
                 return Ok(new { success = true, data = statistics });
             }
@@ -179,12 +163,10 @@ namespace Rock_Paper_Scissors_Online.Controllers
                 return StatusCode(500, new { success = false, message = "Internal server error" });
             }
         }
-    }
 
-    // DTOs for the Betting API
-    public class PlaceBetRequest
-    {
-        public decimal Amount { get; set; }
-        public string TargetPlayerId { get; set; } = string.Empty;
+        /// <summary>Mức cược hợp lệ cho UI.</summary>
+        [HttpGet("allowed-stakes")]
+        public IActionResult GetAllowedStakes() =>
+            Ok(new { success = true, data = BettingService.AllowedBetStakes.OrderBy(x => x).ToList() });
     }
 }
