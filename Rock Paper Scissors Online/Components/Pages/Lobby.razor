@@ -8,81 +8,219 @@
 
 @if (!_ready)
 {
-    <p>Đang tải…</p>
+    <div class="rps-lobby-skeleton" aria-busy="true" aria-label="Đang tải sảnh">
+        <div class="rps-lobby-skeleton-line rps-lobby-skeleton-line--lg"></div>
+        <div class="rps-lobby-skeleton-line rps-lobby-skeleton-line--md"></div>
+        <div class="rps-lobby-skeleton-card"></div>
+    </div>
 }
 else
 {
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <h1 class="h3 mb-0">Sảnh phòng</h1>
-        <div class="d-flex gap-2">
-            <button class="btn btn-outline-secondary btn-sm" type="button" @onclick="RefreshRoomsAsync">Làm mới</button>
-        </div>
-    </div>
-    <p class="text-muted small">Xin chào, <strong>@_session!.Username</strong>. <a href="/portal">Trung tâm API</a> · <a href="/">Razor</a> · <a href="/history">Lịch sử</a></p>
-
-    @if (!string.IsNullOrEmpty(_message))
-    {
-        <div class="alert alert-info">@_message</div>
-    }
-
-    <div class="card mb-4">
-        <div class="card-header">Tạo phòng mới</div>
-        <div class="card-body row g-2">
-            <div class="col-md-4">
-                <label class="form-label">Tên phòng</label>
-                <input class="form-control" @bind="_createName" />
-            </div>
-            <div class="col-md-2">
-                <label class="form-label">Best of</label>
-                <input type="number" class="form-control" @bind="_createBestOf" />
-            </div>
-            <div class="col-md-2">
-                <label class="form-label">Điểm / thắng</label>
-                <input type="number" class="form-control" @bind="_createPoints" />
-            </div>
-            <div class="col-md-2 d-flex align-items-end">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="priv" @bind="_createPrivate" />
-                    <label class="form-check-label" for="priv">Phòng riêng</label>
+    <div class="rps-lobby-shell">
+        <div class="rps-lobby-aurora" aria-hidden="true"></div>
+        <div class="rps-lobby">
+            <header class="rps-lobby-hero">
+                <div class="rps-lobby-hero-text">
+                    <div class="rps-lobby-hero-icon-wrap" aria-hidden="true">
+                        <i class="bi bi-controller"></i>
+                    </div>
+                    <div>
+                        <p class="rps-lobby-kicker">Kéo · Búa · Bao</p>
+                        <h1 class="rps-lobby-title">Sảnh phòng</h1>
+                        <p class="rps-lobby-greet">
+                            Xin chào, <span class="rps-lobby-username">@_session!.Username</span>
+                        </p>
+                    </div>
                 </div>
-            </div>
-            <div class="col-md-2 d-flex align-items-end">
-                <button class="btn btn-primary w-100" type="button" disabled="@_busy" @onclick="CreateAsync">Tạo</button>
-            </div>
-        </div>
-    </div>
+                <button class="btn rps-lobby-refresh-btn" type="button" disabled="@_busy" @onclick="RefreshRoomsAsync"
+                    title="Tải lại danh sách phòng">
+                    <i class="bi bi-arrow-clockwise @( _busy ? "rps-lobby-spin" : "" )" aria-hidden="true"></i>
+                    <span>Làm mới</span>
+                </button>
+            </header>
 
-    <div class="table-responsive">
-        <table class="table table-sm align-middle">
-            <thead>
-                <tr>
-                    <th>Tên</th>
-                    <th>Người chơi</th>
-                    <th>Trạng thái</th>
-                    <th>Riêng tư</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var r in _rooms)
-                {
-                    <tr>
-                        <td>@r.Name</td>
-                        <td>@r.CurrentPlayers / @r.MaxPlayers</td>
-                        <td>@r.Status</td>
-                        <td>@(r.IsPrivate ? "Có" : "Không")</td>
-                        <td class="text-end">
-                            @if (r.IsPrivate)
+            <nav class="rps-lobby-quicklinks" aria-label="Liên kết nhanh">
+                <a class="rps-lobby-pill" href="/portal"><i class="bi bi-cpu me-1" aria-hidden="true"></i>Trung tâm API</a>
+                <a class="rps-lobby-pill" href="/"><i class="bi bi-house me-1" aria-hidden="true"></i>Trang Razor</a>
+                <a class="rps-lobby-pill" href="/history"><i class="bi bi-clock-history me-1" aria-hidden="true"></i>Lịch sử
+                    trận</a>
+                <a class="rps-lobby-pill" href="/howtoplay"><i class="bi bi-book me-1" aria-hidden="true"></i>Cách chơi</a>
+            </nav>
+
+            @if (!string.IsNullOrEmpty(_message))
+            {
+                <div class="rps-lobby-toast @(_messageAlertClass) d-flex align-items-start gap-2" role="status">
+                    <i class="bi rps-lobby-toast-ic @(AlertIconClass()) mt-1" aria-hidden="true"></i>
+                    <div class="flex-grow-1 small rps-lobby-toast-body">@_message</div>
+                    <button type="button" class="btn-close rps-lobby-toast-close" @onclick="DismissMessage"
+                        aria-label="Đóng"></button>
+                </div>
+            }
+
+            <section class="rps-lobby-panel rps-lobby-panel--create">
+                <div class="rps-lobby-panel-head rps-lobby-panel-head--split">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="rps-lobby-panel-ic"><i class="bi bi-plus-lg" aria-hidden="true"></i></span>
+                        <div>
+                            <h2 class="rps-lobby-panel-title">Tham gia phòng chơi</h2>
+                            <p class="rps-lobby-panel-sub mb-0">Đấu 1 vs 1 · tối đa 2 người chơi</p>
+                        </div>
+                    </div>
+                    <div class="rps-lobby-panel-points">
+                        <p class="rps-lobby-panel-points-label mb-1">Điểm hiện tại</p>
+                        @if (_pointsLoading)
+                        {
+                            <p class="rps-lobby-panel-points-value rps-lobby-panel-points-value--muted mb-0">…</p>
+                        }
+                        else if (_pointsLoadFailed)
+                        {
+                            <p class="rps-lobby-panel-points-value rps-lobby-panel-points-value--muted mb-0">—</p>
+                            <p class="rps-lobby-panel-points-sub mb-0">Không tải được</p>
+                        }
+                        else
+                        {
+                            <p class="rps-lobby-panel-points-value mb-0">@_myPoints.ToString("N0")</p>
+                            <a class="rps-lobby-panel-points-link" href="/me/points">Chi tiết điểm</a>
+                        }
+                    </div>
+                </div>
+                <div class="rps-lobby-panel-body">
+                    <div class="row g-3 g-lg-4 align-items-end">
+                        <div class="col-lg-4 col-md-6">
+                            <label class="rps-lobby-label" for="lobby-room-name">Tên phòng</label>
+                            <div class="rps-lobby-input-wrap">
+                                <i class="bi bi-door-open rps-lobby-input-ic" aria-hidden="true"></i>
+                                <input id="lobby-room-name" class="form-control rps-lobby-input" @bind="_createName"
+                                    maxlength="50" autocomplete="off" placeholder="VD: Phòng VIP" />
+                            </div>
+                        </div>
+                        <div class="col-lg-2 col-md-3 col-6">
+                            <label class="rps-lobby-label" for="lobby-bestof"
+                                title="Số hiệp tối đa; ai thắng trước đa số hiệp thì thắng cả trận.">Số hiệp tối đa</label>
+                            <input id="lobby-bestof" type="number" class="form-control rps-lobby-input"
+                                @bind="_createBestOf" min="1" max="15" />
+                        </div>
+                        <div class="col-lg-2 col-md-3 col-6">
+                            <label class="rps-lobby-label" for="lobby-points">Điểm / ván thắng</label>
+                            <div class="rps-lobby-input-wrap">
+                                <i class="bi bi-trophy rps-lobby-input-ic" aria-hidden="true"></i>
+                                <input id="lobby-points" type="number" class="form-control rps-lobby-input"
+                                    @bind="_createPoints" min="10" max="1000" />
+                            </div>
+                        </div>
+                        <div class="col-lg-4 col-md-12">
+                            <div class="rps-lobby-create-actions">
+                                <label class="rps-lobby-check">
+                                    <input type="checkbox" class="form-check-input" id="lobby-priv"
+                                        @bind="_createPrivate" />
+                                    <span>Phòng riêng <span class="rps-lobby-check-hint">(PIN)</span></span>
+                                </label>
+                                <button class="btn rps-lobby-create-btn" type="button" disabled="@_busy"
+                                    @onclick="CreateAsync">
+                                    <i class="bi bi-lightning-charge-fill me-1" aria-hidden="true"></i>Tạo phòng
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="rps-lobby-panel rps-lobby-panel--list">
+                <div class="rps-lobby-list-toolbar">
+                    <h2 class="rps-lobby-list-title">
+                        <i class="bi bi-list-ul me-2" aria-hidden="true"></i>Danh sách phòng
+                    </h2>
+                    @if (_rooms.Count > 0)
+                    {
+                        <span class="rps-lobby-count">@_rooms.Count phòng</span>
+                    }
+                </div>
+                <div class="rps-lobby-table-responsive">
+                    <table class="table table-sm align-middle mb-0 rps-lobby-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Tên</th>
+                                <th scope="col">Người chơi</th>
+                                <th scope="col">Trạng thái</th>
+                                <th scope="col">Riêng tư</th>
+                                <th scope="col" class="text-end">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (_rooms.Count == 0)
                             {
-                                <input class="form-control form-control-sm d-inline-block" style="width:7rem" placeholder="PIN"
-                                       value="@PinFor(r.Id)" @oninput="e => SetPin(r.Id, e.Value?.ToString() ?? string.Empty)" />
+                                <tr>
+                                    <td colspan="5" class="rps-lobby-empty">
+                                        <div class="rps-lobby-empty-inner">
+                                            <i class="bi bi-inbox rps-lobby-empty-ic" aria-hidden="true"></i>
+                                            <p class="mb-1">Chưa có phòng nào</p>
+                                            <p class="small text-muted mb-0">Tạo phòng mới hoặc bấm <strong
+                                                    class="text-light">Làm mới</strong>.</p>
+                                        </div>
+                                    </td>
+                                </tr>
                             }
-                            <button class="btn btn-sm btn-success ms-1" type="button" disabled="@_busy" @onclick="() => JoinAsync(r)">Vào phòng</button>
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+                            else
+                            {
+                                @foreach (var r in _rooms)
+                                {
+                                    var inRoom = IsCurrentUserInRoom(r);
+                                    <tr class="rps-lobby-row">
+                                        <td>
+                                            <span class="rps-lobby-room-name">@r.Name</span>
+                                        </td>
+                                        <td>
+                                            <span class="rps-lobby-players">
+                                                <i class="bi bi-people-fill rps-lobby-players-ic" aria-hidden="true"></i>
+                                                @r.CurrentPlayers / @r.MaxPlayers
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span
+                                                class="rps-lobby-badge @StatusBadgeClass(r.Status)">@FormatRoomStatus(r.Status)</span>
+                                        </td>
+                                        <td>
+                                            @if (r.IsPrivate)
+                                            {
+                                                <span class="rps-lobby-privacy rps-lobby-privacy--yes"><i class="bi bi-lock-fill me-1"
+                                                        aria-hidden="true"></i>Có</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="rps-lobby-privacy rps-lobby-privacy--no">Không</span>
+                                            }
+                                        </td>
+                                        <td class="text-end text-nowrap rps-lobby-actions">
+                                            @if (r.IsPrivate)
+                                            {
+                                                <input class="form-control form-control-sm rps-lobby-pin" placeholder="PIN"
+                                                    value="@PinFor(r.Id)"
+                                                    @oninput="e => SetPin(r.Id, e.Value?.ToString() ?? string.Empty)"
+                                                    aria-label="Mã PIN phòng" />
+                                            }
+                                            @if (inRoom)
+                                            {
+                                                <button class="btn btn-sm rps-lobby-btn-secondary ms-1" type="button" disabled="@_busy"
+                                                    @onclick="() => JoinAsync(r)">
+                                                    <i class="bi bi-box-arrow-in-right me-1" aria-hidden="true"></i>Vào lại
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-sm rps-lobby-btn-join ms-1" type="button" disabled="@_busy"
+                                                    @onclick="() => JoinAsync(r)">
+                                                    <i class="bi bi-play-fill me-1" aria-hidden="true"></i>Vào phòng
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
     </div>
 }
 
@@ -93,11 +231,17 @@ else
     private bool _ready;
     private bool _busy;
     private string? _message;
+    private string _messageAlertClass = "rps-lobby-toast--info";
 
     private string _createName = "Phòng mới";
     private int _createBestOf = 3;
     private int _createPoints = 50;
     private bool _createPrivate;
+    private bool _roomsLoadedOnce;
+    private long _myPoints;
+    private bool _pointsLoading = true;
+    private bool _pointsLoadFailed;
+    private bool _pointsHydrated;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -117,22 +261,116 @@ else
         StateHasChanged();
     }
 
+    private string AlertIconClass() => _messageAlertClass switch
+    {
+        "rps-lobby-toast--danger" => "bi-exclamation-octagon-fill",
+        "rps-lobby-toast--warn" => "bi-exclamation-triangle-fill",
+        _ => "bi-info-circle-fill"
+    };
+
+    private void DismissMessage()
+    {
+        _message = null;
+    }
+
+    private bool IsCurrentUserInRoom(RoomResponseDto r)
+    {
+        if (_session is null)
+            return false;
+        var uid = _session.UserId.ToString();
+        return string.Equals(r.CreatedBy, uid, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(r.Player1?.UserId, uid, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(r.Player2?.UserId, uid, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string FormatRoomStatus(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+            return "—";
+
+        var s = status.Trim();
+        var lower = s.ToLowerInvariant();
+        return lower switch
+        {
+            "waiting" => "Chờ người chơi",
+            "playing" => "Đang đấu",
+            "inprogress" => "Đang đấu",
+            "completed" => "Đã kết thúc",
+            "finished" => "Đã kết thúc",
+            _ when lower.Contains("chờ") || lower.Contains("wait") => "Chờ người chơi",
+            _ when lower.Contains("đấu") || lower.Contains("play") => "Đang đấu",
+            _ when lower.Contains("kết") || lower.Contains("finish") || lower.Contains("complete") => "Đã kết thúc",
+            _ => s
+        };
+    }
+
+    private static string StatusBadgeClass(string? status)
+    {
+        var lower = status?.Trim().ToLowerInvariant() ?? "";
+        if (lower.Contains("chờ") || lower.Contains("wait")) return "rps-lobby-badge--wait";
+        if (lower.Contains("đấu") || lower == "playing" || lower == "inprogress") return "rps-lobby-badge--play";
+        if (lower.Contains("kết") || lower == "completed" || lower == "finished") return "rps-lobby-badge--done";
+        return lower switch
+        {
+            "waiting" => "rps-lobby-badge--wait",
+            "playing" or "inprogress" => "rps-lobby-badge--play",
+            "completed" or "finished" => "rps-lobby-badge--done",
+            _ => "rps-lobby-badge--muted"
+        };
+    }
+
     private async Task RefreshRoomsAsync()
     {
         _message = null;
-        var (ok, list, err) = await Api.GetRoomsAsync();
-        if (!ok)
+        if (_roomsLoadedOnce)
+            _busy = true;
+        try
         {
-            _message = err ?? "Không tải được danh sách phòng";
-            return;
+            var (ok, list, err) = await Api.GetRoomsAsync();
+            if (!ok)
+            {
+                _messageAlertClass = "rps-lobby-toast--danger";
+                _message = err ?? "Không tải được danh sách phòng";
+                return;
+            }
+
+            _rooms = list;
+            foreach (var r in _rooms)
+            {
+                if (!_pinByRoom.ContainsKey(r.Id))
+                    _pinByRoom[r.Id] = "";
+            }
+        }
+        finally
+        {
+            _busy = false;
+            _roomsLoadedOnce = true;
+            await LoadMyPointsAsync();
+        }
+    }
+
+    private async Task LoadMyPointsAsync()
+    {
+        if (!_pointsHydrated)
+        {
+            _pointsLoading = true;
+            await InvokeAsync(StateHasChanged);
         }
 
-        _rooms = list;
-        foreach (var r in _rooms)
+        _pointsLoadFailed = false;
+        var (ok, pts, _) = await Api.GetCurrentPointsAsync();
+        if (ok)
         {
-            if (!_pinByRoom.ContainsKey(r.Id))
-                _pinByRoom[r.Id] = "";
+            _myPoints = pts;
+            _pointsLoadFailed = false;
         }
+        else
+        {
+            _pointsLoadFailed = true;
+        }
+
+        _pointsHydrated = true;
+        _pointsLoading = false;
     }
 
     private string PinFor(string roomId) => _pinByRoom.TryGetValue(roomId, out var p) ? p : "";
@@ -143,6 +381,7 @@ else
     {
         if (string.IsNullOrWhiteSpace(_createName) || _createName.Length < 3)
         {
+            _messageAlertClass = "rps-lobby-toast--warn";
             _message = "Tên phòng ít nhất 3 ký tự.";
             return;
         }
@@ -163,6 +402,7 @@ else
             var (ok, room, err) = await Api.CreateRoomAsync(dto);
             if (!ok || room == null)
             {
+                _messageAlertClass = "rps-lobby-toast--danger";
                 _message = err ?? "Tạo phòng thất bại";
                 return;
             }
@@ -185,6 +425,7 @@ else
             var (ok, room, err) = await Api.JoinRoomAsync(r.Id, string.IsNullOrWhiteSpace(pin) ? null : pin);
             if (!ok || room == null)
             {
+                _messageAlertClass = "rps-lobby-toast--danger";
                 _message = err ?? "Không vào được phòng";
                 return;
             }

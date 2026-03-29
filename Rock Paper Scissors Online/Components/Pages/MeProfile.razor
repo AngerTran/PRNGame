@@ -19,8 +19,9 @@ else
     <h1 class="h3">Hồ sơ (Profile API)</h1>
     <p class="small"><a href="/portal">← Trung tâm</a></p>
 
-    <ul class="nav nav-tabs mb-3">
-        <li class="nav-item"><button type="button" class="nav-link @C(0)" @onclick='() => _t=0'>Tổng quan</button></li>
+    <ul class="nav nav-tabs mb-3 flex-wrap">
+        <li class="nav-item"><button type="button" class="nav-link @C(0)" @onclick='() => _t=0'>Tổng quan (tôi)</button></li>
+        <li class="nav-item"><button type="button" class="nav-link @C(3)" @onclick='() => _t=3'>Hồ sơ người khác</button></li>
         <li class="nav-item"><button type="button" class="nav-link @C(1)" @onclick='() => _t=1'>GET .../stats (raw)</button></li>
         <li class="nav-item"><button type="button" class="nav-link @C(2)" @onclick='() => _t=2'>GET .../history</button></li>
     </ul>
@@ -53,6 +54,40 @@ else
         </ul>
         <JsonApiResult Json="@_histRaw" Error="@_histErr" />
     }
+
+    @if (_t == 3)
+    {
+        <p class="small text-muted">Gọi <code>GET api/v1/profile/&#123;userId&#125;</code> với GUID người chơi khác.</p>
+        <div class="input-group mb-3" style="max-width:32rem">
+            <input class="form-control" @bind="_otherGuid" placeholder="Guid người chơi" />
+            <button type="button" class="btn btn-primary" @onclick="LoadOtherProfileAsync">Tải hồ sơ</button>
+        </div>
+        @if (!string.IsNullOrEmpty(_otherErr))
+        {
+            <div class="alert alert-danger py-2 small">@_otherErr</div>
+        }
+        @if (_otherProfile != null)
+        {
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h2 class="h5">@_otherProfile.User.Username</h2>
+                    <p class="small text-muted mb-1">@_otherProfile.User.Email</p>
+                    <p class="mb-0">Điểm: @_otherProfile.User.Points · Trận: @_otherProfile.Stats.GamesPlayed (thắng @_otherProfile.Stats.GamesWon)</p>
+                </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-primary mb-2" @onclick="LoadOtherHistoryAsync">Tải lịch sử (profile/.../history)</button>
+            <ul class="list-group small">
+                @foreach (var g in _otherHist?.RecentGames ?? new List<GameHistoryDto>())
+                {
+                    <li class="list-group-item">@g.Opponent — @g.Result (@g.Timestamp.ToLocalTime():g)</li>
+                }
+            </ul>
+            @if (!string.IsNullOrEmpty(_otherHistErr))
+            {
+                <p class="text-danger small mt-2">@_otherHistErr</p>
+            }
+        }
+    }
 }
 
 @code {
@@ -65,6 +100,11 @@ else
     private GameHistoryResponseDto? _hist;
     private string? _histRaw;
     private string? _histErr;
+    private string _otherGuid = "";
+    private CompleteProfileDto? _otherProfile;
+    private string? _otherErr;
+    private GameHistoryResponseDto? _otherHist;
+    private string? _otherHistErr;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -103,5 +143,41 @@ else
         if (!ok) _histErr = err;
         if (ok && h != null)
             _histRaw = System.Text.Json.JsonSerializer.Serialize(h, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+    }
+
+    private async Task LoadOtherProfileAsync()
+    {
+        _otherErr = null;
+        _otherProfile = null;
+        _otherHist = null;
+        _otherHistErr = null;
+        if (!Guid.TryParse(_otherGuid.Trim(), out var gid))
+        {
+            _otherErr = "GUID không hợp lệ.";
+            return;
+        }
+        var (ok, p, err) = await Api.GetCompleteProfileAsync(gid);
+        if (!ok || p == null)
+        {
+            _otherErr = err ?? "Không tìm thấy người chơi.";
+            return;
+        }
+        _otherProfile = p;
+    }
+
+    private async Task LoadOtherHistoryAsync()
+    {
+        _otherHistErr = null;
+        _otherHist = null;
+        if (!Guid.TryParse(_otherGuid.Trim(), out var gid))
+        {
+            _otherHistErr = "GUID không hợp lệ.";
+            return;
+        }
+        var (ok, h, err) = await Api.GetProfileHistoryAsync(gid, 30, 0);
+        if (!ok)
+            _otherHistErr = err;
+        else
+            _otherHist = h;
     }
 }

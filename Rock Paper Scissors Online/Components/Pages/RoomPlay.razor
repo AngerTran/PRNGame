@@ -10,68 +10,143 @@
 
 @if (!_ready)
 {
-    <p>Đang kết nối…</p>
+    <div class="rps-play-skel px-1" aria-busy="true">
+        <div class="rps-lobby-skeleton-line rps-lobby-skeleton-line--lg"></div>
+        <div class="rps-lobby-skeleton-card" style="height:12rem"></div>
+    </div>
 }
 else
 {
-    <div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
-        <h1 class="h4 mb-0">@(_room?.Name ?? "Phòng")</h1>
-        <a class="btn btn-outline-secondary btn-sm" href="/lobby">Rời / Sảnh</a>
-    </div>
+    <div class="rps-play-shell">
+        <div class="rps-play">
+            <header class="rps-play-head">
+                <div>
+                    <p class="rps-lobby-kicker mb-1">Phòng đấu</p>
+                    <h1 class="rps-play-title">@(_room?.Name ?? "Phòng")</h1>
+                </div>
+                <a class="rps-play-leave" href="/lobby"><i class="bi bi-box-arrow-left" aria-hidden="true"></i> Rời / Sảnh</a>
+            </header>
 
-    @if (!string.IsNullOrEmpty(_hubError))
-    {
-        <div class="alert alert-danger">@_hubError</div>
-    }
-    @if (!string.IsNullOrEmpty(_toast))
-    {
-        <div class="alert alert-info py-2">@_toast</div>
-    }
+            @if (!string.IsNullOrEmpty(_hubError))
+            {
+                <div class="alert alert-danger rps-play-alert py-2">@_hubError</div>
+            }
+            @if (!string.IsNullOrEmpty(_toast))
+            {
+                <div class="alert alert-info rps-play-alert py-2 small mb-3">@_toast</div>
+            }
 
-    <div class="row g-3">
-        <div class="col-lg-6">
-            <div class="card">
-                <div class="card-header">Trạng thái</div>
-                <div class="card-body small">
-                    <div><strong>Giai đoạn:</strong> @_phase</div>
-                    <div><strong>Bạn:</strong> @_session!.Username</div>
-                    @if (_room != null)
-                    {
-                        <div><strong>Chủ phòng:</strong> @_room.CreatedByUsername</div>
-                        <div><strong>Điểm:</strong> P1 @ScoreP1 — P2 @ScoreP2</div>
-                        <div><strong>Người chơi 1:</strong> @Label(_room.Player1) @Ready(_room.Player1)</div>
-                        <div><strong>Người chơi 2:</strong> @Label(_room.Player2) @Ready(_room.Player2)</div>
-                    }
+            <div class="row g-3">
+                <div class="col-lg-6">
+                    <section class="rps-play-panel">
+                        <div class="rps-play-panel-h">Trạng thái</div>
+                        <div class="rps-play-panel-b">
+                            @if (_room != null)
+                            {
+                                <dl class="mb-0">
+                                    <div class="rps-play-stat">
+                                        <dt>Giai đoạn</dt>
+                                        <dd>@_phase</dd>
+                                    </div>
+                                    <div class="rps-play-stat">
+                                        <dt>Bạn</dt>
+                                        <dd>@_session!.Username</dd>
+                                    </div>
+                                    <div class="rps-play-stat">
+                                        <dt>Chủ phòng</dt>
+                                        <dd>@_room.CreatedByUsername</dd>
+                                    </div>
+                                    <div class="rps-play-stat">
+                                        <dt>Điểm</dt>
+                                        <dd>P1 @ScoreP1 — P2 @ScoreP2</dd>
+                                    </div>
+                                    <div class="rps-play-stat">
+                                        <dt>Người chơi 1</dt>
+                                        <dd>
+                                            @if (_room.Player1 == null)
+                                            {
+                                                <text>—</text>
+                                            }
+                                            else
+                                            {
+                                                @_room.Player1.Username
+                                                @if (_room.Player1.IsReady)
+                                                {
+                                                    <span class="rps-play-ready-ic"> ✓</span>
+                                                }
+                                            }
+                                        </dd>
+                                    </div>
+                                    <div class="rps-play-stat">
+                                        <dt>Người chơi 2</dt>
+                                        <dd>
+                                            @if (_room.Player2 == null)
+                                            {
+                                                <text>—</text>
+                                            }
+                                            else
+                                            {
+                                                @_room.Player2.Username
+                                                @if (_room.Player2.IsReady)
+                                                {
+                                                    <span class="rps-play-ready-ic"> ✓</span>
+                                                }
+                                            }
+                                        </dd>
+                                    </div>
+                                </dl>
+                            }
+                            else
+                            {
+                                <p class="text-muted small mb-0">Không có dữ liệu phòng.</p>
+                            }
+                        </div>
+                    </section>
+                </div>
+                <div class="col-lg-6">
+                    <section class="rps-play-panel">
+                        <div class="rps-play-panel-h">Hành động</div>
+                        <div class="rps-play-panel-b">
+                            <div class="rps-play-actions">
+                                @if (AmIReady)
+                                {
+                                    <button class="btn rps-play-btn-unready" type="button" disabled="@_hubBusy" @onclick="() => SetReadyAsync(false)">
+                                        <i class="bi bi-x-lg me-1" aria-hidden="true"></i>Hủy sẵn sàng
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn rps-play-btn-ready" type="button" disabled="@_hubBusy" @onclick="() => SetReadyAsync(true)">
+                                        <i class="bi bi-check2-circle me-1" aria-hidden="true"></i>Sẵn sàng
+                                    </button>
+                                }
+                                @if (_isCreator)
+                                {
+                                    <button class="btn rps-play-btn-start" type="button" disabled="@_hubBusy" @onclick="StartGameAsync">
+                                        <i class="bi bi-play-fill me-1" aria-hidden="true"></i>Bắt đầu game
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </section>
                 </div>
             </div>
-        </div>
-        <div class="col-lg-6">
-            <div class="card">
-                <div class="card-header">Hành động</div>
-                <div class="card-body d-flex flex-wrap gap-2">
-                    <button class="btn btn-outline-primary btn-sm" type="button" disabled="@_hubBusy" @onclick="ReadyAsync">Sẵn sàng</button>
-                    @if (_isCreator)
-                    {
-                        <button class="btn btn-primary btn-sm" type="button" disabled="@_hubBusy" @onclick="StartGameAsync">Bắt đầu game</button>
-                    }
+
+            <section class="rps-play-moves">
+                <div class="rps-play-moves-h">Nước đi · rock / paper / scissors</div>
+                <div class="rps-play-moves-b">
+                    <button class="btn rps-play-move" type="button" disabled="@_hubBusy" @onclick='() => MoveAsync("rock")'>🪨 Búa đá</button>
+                    <button class="btn rps-play-move" type="button" disabled="@_hubBusy" @onclick='() => MoveAsync("paper")'>📄 Bao</button>
+                    <button class="btn rps-play-move" type="button" disabled="@_hubBusy" @onclick='() => MoveAsync("scissors")'>✂️ Kéo</button>
                 </div>
-            </div>
+            </section>
+
+            @if (!string.IsNullOrEmpty(_lastRound))
+            {
+                <div class="rps-play-round"><strong>Ván gần nhất:</strong> @_lastRound</div>
+            }
         </div>
     </div>
-
-    <div class="card mt-3">
-        <div class="card-header">Nước đi (rock / paper / scissors)</div>
-        <div class="card-body d-flex flex-wrap gap-2">
-            <button class="btn btn-secondary" type="button" disabled="@_hubBusy" @onclick='() => MoveAsync("rock")'>🪨 Búa đá</button>
-            <button class="btn btn-secondary" type="button" disabled="@_hubBusy" @onclick='() => MoveAsync("paper")'>📄 Bao</button>
-            <button class="btn btn-secondary" type="button" disabled="@_hubBusy" @onclick='() => MoveAsync("scissors")'>✂️ Kéo</button>
-        </div>
-    </div>
-
-    @if (!string.IsNullOrEmpty(_lastRound))
-    {
-        <div class="alert alert-success mt-3 mb-0"><strong>Ván gần nhất:</strong> @_lastRound</div>
-    }
 }
 
 @code {
@@ -93,8 +168,20 @@ else
     private int ScoreP1 => _room?.PlayerScores?.GetValueOrDefault(_room.Player1?.UserId ?? "", 0) ?? 0;
     private int ScoreP2 => _room?.PlayerScores?.GetValueOrDefault(_room.Player2?.UserId ?? "", 0) ?? 0;
 
-    private static string Label(PlayerDto? p) => p == null ? "—" : p.Username;
-    private static string Ready(PlayerDto? p) => p == null ? "" : p.IsReady ? " ✓" : "";
+    private bool AmIReady
+    {
+        get
+        {
+            if (_session == null || _room == null)
+                return false;
+            var uid = _session.UserId.ToString();
+            if (string.Equals(_room.Player1?.UserId, uid, StringComparison.OrdinalIgnoreCase))
+                return _room.Player1?.IsReady ?? false;
+            if (string.Equals(_room.Player2?.UserId, uid, StringComparison.OrdinalIgnoreCase))
+                return _room.Player2?.IsReady ?? false;
+            return false;
+        }
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -211,14 +298,14 @@ else
         return true;
     }
 
-    private async Task ReadyAsync()
+    private async Task SetReadyAsync(bool isReady)
     {
         if (_hub == null)
             return;
         _hubBusy = true;
         try
         {
-            await _hub.InvokeAsync("SetPlayerReady", RoomId, true);
+            await _hub.InvokeAsync("SetPlayerReady", RoomId, isReady);
             await RefreshRoomUiAsync();
         }
         finally
