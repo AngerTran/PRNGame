@@ -4,34 +4,81 @@
     ViewData["Title"] = "Cách chơi";
 }
 
-<div class="rps-razor-page-head mb-4">
-    <h1 class="h2 mb-2">Cách chơi</h1>
-    <p class="text-muted small mb-0">Từng bước từ tài khoản tới ván đấu.</p>
-</div>
+<div class="rps-razor-howto">
+    <header class="rps-razor-howto-head">
+        <p class="rps-razor-howto-kicker"><i class="bi bi-book-half me-1" aria-hidden="true"></i>Hướng dẫn nhanh</p>
+        <h1 class="rps-razor-howto-title">Cách chơi</h1>
+        <p class="rps-razor-howto-lead">Từng bước từ tài khoản tới ván đấu.</p>
+    </header>
 
-<ol class="rps-razor-steps list-group list-group-numbered list-group-flush mb-4">
-    <li class="list-group-item bg-transparent rps-razor-step-item px-0 py-3">
-        <a href="/register">Tạo tài khoản</a> hoặc <a href="/login">đăng nhập</a>.
-    </li>
-    <li class="list-group-item bg-transparent rps-razor-step-item px-0 py-3">
-        Vào <a href="/lobby">sảnh game</a>, tạo phòng hoặc tham gia phòng có sẵn (nhập PIN nếu phòng riêng).
-    </li>
-    <li class="list-group-item bg-transparent rps-razor-step-item px-0 py-3">
-        Cả hai người vào <strong>chế độ sẵn sàng</strong>; chủ phòng bấm <strong>bắt đầu</strong> (có thể có giai đoạn cược tùy phòng).
-    </li>
-    <li class="list-group-item bg-transparent rps-razor-step-item px-0 py-3">
-        Khi đến lượt đấu, chọn <strong>kéo / búa / bao</strong>. Kết quả ván được đồng bộ qua SignalR.
-    </li>
-    <li class="list-group-item bg-transparent rps-razor-step-item px-0 py-3">
-        Xem <a href="/history">lịch sử trận</a> sau khi kết thúc.
-    </li>
-</ol>
+    <ol class="rps-razor-howto-steps">
+        <li class="rps-razor-howto-step">
+            <div class="rps-razor-howto-track" aria-hidden="true">
+                <span class="rps-razor-howto-bubble">1</span>
+            </div>
+            <div class="rps-razor-howto-panel">
+                <span class="rps-razor-howto-icon"><i class="bi bi-person-plus" aria-hidden="true"></i></span>
+                <div class="rps-razor-howto-text">
+                    <a href="/register">Tạo tài khoản</a> hoặc <a href="/login">đăng nhập</a>.
+                </div>
+            </div>
+        </li>
+        <li class="rps-razor-howto-step">
+            <div class="rps-razor-howto-track" aria-hidden="true">
+                <span class="rps-razor-howto-bubble">2</span>
+            </div>
+            <div class="rps-razor-howto-panel">
+                <span class="rps-razor-howto-icon"><i class="bi bi-door-open" aria-hidden="true"></i></span>
+                <div class="rps-razor-howto-text">
+                    Vào <a href="/lobby">sảnh game</a>, tạo phòng hoặc tham gia phòng có sẵn (nhập PIN nếu phòng riêng).
+                </div>
+            </div>
+        </li>
+        <li class="rps-razor-howto-step">
+            <div class="rps-razor-howto-track" aria-hidden="true">
+                <span class="rps-razor-howto-bubble">3</span>
+            </div>
+            <div class="rps-razor-howto-panel">
+                <span class="rps-razor-howto-icon"><i class="bi bi-play-circle" aria-hidden="true"></i></span>
+                <div class="rps-razor-howto-text">
+                    Cả hai người vào <strong>chế độ sẵn sàng</strong>; chủ phòng bấm <strong>bắt đầu</strong> (có thể có giai đoạn cược tùy phòng).
+                </div>
+            </div>
+        </li>
+        <li class="rps-razor-howto-step">
+            <div class="rps-razor-howto-track" aria-hidden="true">
+                <span class="rps-razor-howto-bubble">4</span>
+            </div>
+            <div class="rps-razor-howto-panel">
+                <span class="rps-razor-howto-icon"><i class="bi bi-lightning-charge-fill" aria-hidden="true"></i></span>
+                <div class="rps-razor-howto-text">
+                    Khi đến lượt đấu, chọn <strong>kéo / búa / bao</strong>. Kết quả ván được đồng bộ qua SignalR.
+                </div>
+            </div>
+        </li>
+        <li class="rps-razor-howto-step">
+            <div class="rps-razor-howto-track" aria-hidden="true">
+                <span class="rps-razor-howto-bubble">5</span>
+            </div>
+            <div class="rps-razor-howto-panel">
+                <span class="rps-razor-howto-icon"><i class="bi bi-clock-history" aria-hidden="true"></i></span>
+                <div class="rps-razor-howto-text">
+                    Xem <a href="/history">lịch sử trận</a> sau khi kết thúc.
+                </div>
+            </div>
+        </li>
+    </ol>
 
-<p class="text-muted small rps-razor-step-foot pt-3 mb-4">
-    Luật: kéo thắng bao, bao thắng búa, búa thắng kéo; cùng nước là hòa.
-</p>
+    <div class="rps-razor-howto-rules" role="note">
+        <span class="rps-razor-howto-rules-icon" aria-hidden="true"><i class="bi bi-shield-check"></i></span>
+        <div>
+            <strong class="rps-razor-howto-rules-title">Luật cơ bản</strong>
+            <p class="rps-razor-howto-rules-text">Kéo thắng bao, bao thắng búa, búa thắng kéo; cùng nước là hòa.</p>
+        </div>
+    </div>
 
-<div class="d-flex flex-wrap gap-2">
-    <a class="btn btn-primary" href="/lobby"><i class="bi bi-controller me-1"></i>Vào sảnh</a>
-    <a class="btn btn-outline-secondary" asp-page="/Index">Trang chủ</a>
+    <div class="rps-razor-howto-actions">
+        <a class="btn btn-primary btn-lg" href="/lobby"><i class="bi bi-controller me-2" aria-hidden="true"></i>Vào sảnh</a>
+        <a class="btn btn-outline-secondary btn-lg rps-razor-howto-btn-secondary" asp-page="/Index"><i class="bi bi-house-door me-2" aria-hidden="true"></i>Trang chủ</a>
+    </div>
 </div>

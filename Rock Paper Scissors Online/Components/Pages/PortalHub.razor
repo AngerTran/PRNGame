@@ -6,71 +6,86 @@
 
 @if (_checked && !_loggedIn)
 {
-    <div class="rps-portal-guest card shadow-sm border-0">
-        <div class="card-body text-center py-5 px-4">
-            <h1 class="h4 mb-2">RPS Online</h1>
-            <p class="text-muted mb-4 mx-auto" style="max-width: 22rem">
-                Đăng nhập để mở menu đầy đủ và dùng các module (sảnh, lịch sử, dashboard, công cụ API…).
-            </p>
-            <div class="d-flex flex-wrap gap-2 justify-content-center">
-                <a class="btn btn-primary" href="/login">Đăng nhập</a>
-                <a class="btn btn-outline-primary" href="/register">Đăng ký</a>
+    <div class="rps-portal-hub-guest-wrap">
+        <div class="rps-portal-guest card shadow-sm border-0">
+            <div class="card-body text-center py-5 px-4">
+                <h1 class="h4 mb-2">RPS Online</h1>
+                <p class="text-muted mb-4 mx-auto" style="max-width: 22rem">
+                    Đăng nhập để mở menu đầy đủ và dùng các module (sảnh, lịch sử, dashboard, công cụ API…).
+                </p>
+                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                    <a class="btn btn-primary" href="/login">Đăng nhập</a>
+                    <a class="btn btn-outline-primary" href="/register">Đăng ký</a>
+                </div>
+                <p class="small text-muted mt-4 mb-0"><a href="/">Trang chủ Razor</a></p>
             </div>
-            <p class="small text-muted mt-4 mb-0"><a href="/">Trang chủ Razor</a></p>
         </div>
     </div>
 }
 else if (_loggedIn)
 {
-    <h1 class="h3 mb-4">Trung tâm (tất cả API)</h1>
-    <p class="text-muted">Chọn module — đã đăng nhập với tài khoản của bạn.</p>
+    <div class="rps-portal-hub">
+        <header class="rps-portal-hub-hero">
+            <p class="rps-portal-hub-kicker"><i class="bi bi-cpu" aria-hidden="true"></i> API &amp; module</p>
+            <h1 class="rps-portal-hub-title">Trung tâm (tất cả API)</h1>
+            <p class="rps-portal-hub-sub">Chọn module — đã đăng nhập với tài khoản của bạn.</p>
+        </header>
 
-    <div class="row g-3">
-        <div class="col-md-4">
-            <div class="card h-100 shadow-sm">
-                <div class="card-body">
-                    <h2 class="h6">Chơi</h2>
-                    <ul class="small mb-0">
-                        <li><a href="/lobby">Sảnh phòng</a></li>
-                        <li><a href="/history">Lịch sử trận</a></li>
-                        <li><a href="/tools/rooms">Phòng (API)</a></li>
-                        <li><a href="/tools/game">Game REST</a></li>
+        <div class="rps-portal-hub-grid">
+            <article class="rps-portal-hub-card rps-portal-hub-card--play">
+                <div class="rps-portal-hub-card-head">
+                    <span class="rps-portal-hub-card-ic" aria-hidden="true"><i class="bi bi-controller"></i></span>
+                    <h2 class="rps-portal-hub-card-title">Chơi</h2>
+                </div>
+                <div class="rps-portal-hub-card-body">
+                    <ul class="rps-portal-hub-list">
+                        <li><a class="rps-portal-hub-link" href="/lobby"><i class="bi bi-door-open" aria-hidden="true"></i>Sảnh phòng</a></li>
+                        <li><a class="rps-portal-hub-link" href="/history"><i class="bi bi-clock-history" aria-hidden="true"></i>Lịch sử trận</a></li>
+                        <li><a class="rps-portal-hub-link" href="/tools/rooms"><i class="bi bi-hdd-network" aria-hidden="true"></i>Phòng (API)</a></li>
+                        <li><a class="rps-portal-hub-link" href="/tools/game"><i class="bi bi-joystick" aria-hidden="true"></i>Game REST</a></li>
                     </ul>
                 </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card h-100 shadow-sm">
-                <div class="card-body">
-                    <h2 class="h6">Cộng đồng &amp; điểm</h2>
-                    <ul class="small mb-0">
-                        <li><a href="/dashboard">Dashboard</a></li>
-                        <li><a href="/leaderboard">Bảng xếp hạng</a></li>
-                        <li><a href="/players">Người chơi</a></li>
-                        <li><a href="/me">Hồ sơ &amp; profile API</a></li>
-                        <li><a href="/me/points">Điểm</a></li>
+            </article>
+
+            <article class="rps-portal-hub-card rps-portal-hub-card--social">
+                <div class="rps-portal-hub-card-head">
+                    <span class="rps-portal-hub-card-ic" aria-hidden="true"><i class="bi bi-people"></i></span>
+                    <h2 class="rps-portal-hub-card-title">Cộng đồng &amp; điểm</h2>
+                </div>
+                <div class="rps-portal-hub-card-body">
+                    <ul class="rps-portal-hub-list">
+                        <li><a class="rps-portal-hub-link" href="/dashboard"><i class="bi bi-speedometer2" aria-hidden="true"></i>Dashboard</a></li>
+                        <li><a class="rps-portal-hub-link" href="/leaderboard"><i class="bi bi-trophy" aria-hidden="true"></i>Bảng xếp hạng</a></li>
+                        <li><a class="rps-portal-hub-link" href="/players"><i class="bi bi-person-lines-fill" aria-hidden="true"></i>Người chơi</a></li>
+                        <li><a class="rps-portal-hub-link" href="/me"><i class="bi bi-person-badge" aria-hidden="true"></i>Hồ sơ &amp; profile API</a></li>
+                        <li><a class="rps-portal-hub-link" href="/me/points"><i class="bi bi-wallet2" aria-hidden="true"></i>Điểm</a></li>
                     </ul>
                 </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card h-100 shadow-sm">
-                <div class="card-body">
-                    <h2 class="h6">Chat, cược, vận hành</h2>
-                    <ul class="small mb-0">
-                        <li><a href="/tools/chat">Chat &amp; activity</a></li>
-                        <li><a href="/tools/betting">Betting</a></li>
-                        <li><a href="/tools/room-management">Room management</a></li>
-                        <li><a href="/tools/health">Health checks</a></li>
-                        <li><a href="/tools/api-map">Bản đồ API → UI</a></li>
-                        <li><a href="/tools/api-explorer">API explorer</a></li>
-                        <li><a href="/account">Tài khoản &amp; token</a></li>
+            </article>
+
+            <article class="rps-portal-hub-card rps-portal-hub-card--ops">
+                <div class="rps-portal-hub-card-head">
+                    <span class="rps-portal-hub-card-ic" aria-hidden="true"><i class="bi bi-sliders"></i></span>
+                    <h2 class="rps-portal-hub-card-title">Chat, cược, vận hành</h2>
+                </div>
+                <div class="rps-portal-hub-card-body">
+                    <ul class="rps-portal-hub-list">
+                        <li><a class="rps-portal-hub-link" href="/tools/chat"><i class="bi bi-chat-dots" aria-hidden="true"></i>Chat &amp; activity</a></li>
+                        <li><a class="rps-portal-hub-link" href="/tools/betting"><i class="bi bi-currency-dollar" aria-hidden="true"></i>Betting</a></li>
+                        <li><a class="rps-portal-hub-link" href="/tools/room-management"><i class="bi bi-gear-wide-connected" aria-hidden="true"></i>Room management</a></li>
+                        <li><a class="rps-portal-hub-link" href="/tools/health"><i class="bi bi-heart-pulse" aria-hidden="true"></i>Health checks</a></li>
+                        <li><a class="rps-portal-hub-link" href="/tools/api-map"><i class="bi bi-diagram-3" aria-hidden="true"></i>Bản đồ API → UI</a></li>
+                        <li><a class="rps-portal-hub-link" href="/tools/api-explorer"><i class="bi bi-braces" aria-hidden="true"></i>API explorer</a></li>
+                        <li><a class="rps-portal-hub-link" href="/account"><i class="bi bi-key" aria-hidden="true"></i>Tài khoản &amp; token</a></li>
                     </ul>
                 </div>
-            </div>
+            </article>
         </div>
+
+        <footer class="rps-portal-hub-foot">
+            <a class="rps-hub-pill" href="/"><i class="bi bi-arrow-left" aria-hidden="true"></i>Razor trang chủ</a>
+        </footer>
     </div>
-    <p class="mt-3 small"><a href="/">← Razor trang chủ</a></p>
 }
 else
 {

@@ -5,10 +5,16 @@
 
 <PageTitle>Người chơi</PageTitle>
 
-<h1 class="h3">Người chơi &amp; tìm kiếm</h1>
-<p class="small"><a href="/portal">← Trung tâm</a></p>
+<div class="rps-community-shell">
+    <header class="rps-community-hero">
+        <p class="rps-community-kicker"><i class="bi bi-people" aria-hidden="true"></i> Cộng đồng</p>
+        <h1 class="rps-community-title">Người chơi &amp; tìm kiếm</h1>
+    </header>
+    <nav class="rps-hub-quicklinks" aria-label="Liên kết nhanh">
+        <a class="rps-hub-pill" href="/portal"><i class="bi bi-cpu" aria-hidden="true"></i>Trung tâm</a>
+    </nav>
 
-<ul class="nav nav-tabs mb-3">
+    <ul class="nav nav-tabs mb-3">
     <li class="nav-item"><button class="nav-link @TabClass(0)" type="button" @onclick='() => _tab = 0'>Online (player-stats)</button></li>
     <li class="nav-item"><button class="nav-link @TabClass(1)" type="button" @onclick='() => _tab = 1'>Tìm (player-stats)</button></li>
     <li class="nav-item"><button class="nav-link @TabClass(2)" type="button" @onclick='() => _tab = 2'>Chi tiết GUID</button></li>
@@ -18,7 +24,9 @@
 
 @if (_tab == 0)
 {
-    <button class="btn btn-sm btn-primary mb-2" type="button" @onclick="LoadOnlineStatsAsync">GET api/v1/player-stats/Online</button>
+    <div class="rps-community-toolbar">
+        <button class="btn btn-sm btn-primary" type="button" @onclick="LoadOnlineStatsAsync">GET api/v1/player-stats/Online</button>
+    </div>
     <div class="table-responsive small">
         <table class="table table-sm">
             <thead><tr><th>User</th><th>Điểm</th><th>Trận</th></tr></thead>
@@ -72,7 +80,7 @@
 
 @if (_tab == 3)
 {
-    <div class="d-flex flex-wrap gap-2 mb-2">
+    <div class="rps-community-toolbar">
         <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="LegacyOnlineAsync">GET /players/Online</button>
     </div>
     <div class="input-group mb-2" style="max-width:28rem">
@@ -106,6 +114,7 @@
         <JsonApiResult Json="@_invJson" Error="@_invErr" />
     }
 }
+</div>
 
 @code {
     private int _tab;

@@ -5,39 +5,79 @@
 
 <PageTitle>Betting API</PageTitle>
 
-<h1 class="h3">Betting API</h1>
-<p class="small">Route: <code>api/v1/Betting/...</code> · <a href="/portal">← Trung tâm</a></p>
+<div class="rps-community-shell rps-tools-page">
+    <header class="rps-community-hero">
+        <p class="rps-community-kicker"><i class="bi bi-currency-exchange" aria-hidden="true"></i> REST · Cược</p>
+        <h1 class="rps-community-title">Betting API</h1>
+        <p class="rps-betting-route mb-2">Route: <code class="text-reset">api/v1/Betting/...</code></p>
+        <p class="text-muted small mb-0">Xem pool, thống kê và đặt cược theo phòng.</p>
+    </header>
+    <nav class="rps-hub-quicklinks" aria-label="Liên kết nhanh">
+        <a class="rps-hub-pill" href="/portal"><i class="bi bi-cpu" aria-hidden="true"></i>Trung tâm</a>
+        <a class="rps-hub-pill" href="/lobby"><i class="bi bi-door-open" aria-hidden="true"></i>Sảnh</a>
+    </nav>
 
-@if (_session == null)
-{
-    <p><a href="/login">Đăng nhập</a></p>
-}
-else
-{
-    <input class="form-control mb-2" style="max-width:22rem" @bind="_roomId" placeholder="roomId" />
-    <div class="d-flex flex-wrap gap-1 mb-2">
-        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="PoolAsync">GET pool</button>
-        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="StatAsync">GET statistics</button>
-    </div>
-    <div class="row g-2 align-items-end mb-2" style="max-width:36rem">
-        <div class="col-md-3">
-            <label class="form-label small mb-0">Mức cược (25/50/100/150)</label>
-            <input type="number" class="form-control form-control-sm" @bind="_amt" />
+    @if (_session == null)
+    {
+        <div class="card rps-tools-guest border-secondary">
+            <div class="card-body text-center">
+                <p class="text-muted small mb-3 mb-md-0">Đăng nhập để gọi API cược.</p>
+                <a class="btn btn-primary btn-sm" href="/login">Đăng nhập</a>
+            </div>
         </div>
-        <div class="col-md-4">
-            <label class="form-label small mb-0">targetPlayerId</label>
-            <input class="form-control form-control-sm" @bind="_target" />
+    }
+    else
+    {
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-hash" aria-hidden="true"></i>
+                Phòng &amp; đọc pool
+            </div>
+            <div class="card-body">
+                <label class="rps-tools-field-label" for="rps-bet-room">roomId</label>
+                <input id="rps-bet-room" class="form-control mb-3" style="max-width: min(22rem, 100%);" @bind="_roomId" placeholder="roomId" autocomplete="off" />
+                <div class="rps-community-toolbar">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="PoolAsync">
+                        <i class="bi bi-droplet" aria-hidden="true"></i>GET pool
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="StatAsync">
+                        <i class="bi bi-bar-chart-line" aria-hidden="true"></i>GET statistics
+                    </button>
+                </div>
+            </div>
         </div>
-        <div class="col-md-3">
-            <label class="form-label small mb-0">PIN (phòng riêng)</label>
-            <input class="form-control form-control-sm" @bind="_pin" placeholder="tuỳ chọn" />
+
+        <div class="card mb-3">
+            <div class="card-header">
+                <i class="bi bi-plus-circle" aria-hidden="true"></i>
+                Đặt cược (POST)
+            </div>
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-sm-6 col-lg-3">
+                        <label class="rps-tools-field-label" for="rps-bet-amt">Mức cược (25/50/100/150)</label>
+                        <input id="rps-bet-amt" type="number" class="form-control form-control-sm" @bind="_amt" />
+                    </div>
+                    <div class="col-sm-6 col-lg-4">
+                        <label class="rps-tools-field-label" for="rps-bet-target">targetPlayerId</label>
+                        <input id="rps-bet-target" class="form-control form-control-sm" @bind="_target" placeholder="targetPlayerId" autocomplete="off" />
+                    </div>
+                    <div class="col-sm-6 col-lg-3">
+                        <label class="rps-tools-field-label" for="rps-bet-pin">PIN (phòng riêng)</label>
+                        <input id="rps-bet-pin" class="form-control form-control-sm" @bind="_pin" placeholder="tuỳ chọn" autocomplete="off" />
+                    </div>
+                    <div class="col-sm-6 col-lg-2">
+                        <button type="button" class="btn btn-sm btn-primary w-100" @onclick="BetAsync">
+                            <i class="bi bi-send-fill" aria-hidden="true"></i>POST
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="col-md-2">
-            <button type="button" class="btn btn-sm btn-primary w-100 mt-4" @onclick="BetAsync">POST</button>
-        </div>
-    </div>
-    <JsonApiResult Json="@_j" Error="@_e" />
-}
+
+        <JsonApiResult Json="@_j" Error="@_e" />
+    }
+</div>
 
 @code {
     private PortalAuthState? _session;

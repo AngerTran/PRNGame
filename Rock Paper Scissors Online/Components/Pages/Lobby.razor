@@ -17,9 +17,8 @@
 else
 {
     <div class="rps-lobby-shell">
-        <div class="rps-lobby-aurora" aria-hidden="true"></div>
         <div class="rps-lobby">
-            <header class="rps-lobby-hero">
+            <header class="rps-lobby-hero rps-lobby-hero--elevated">
                 <div class="rps-lobby-hero-text">
                     <div class="rps-lobby-hero-icon-wrap" aria-hidden="true">
                         <i class="bi bi-controller"></i>
@@ -32,19 +31,20 @@ else
                         </p>
                     </div>
                 </div>
-                <button class="btn rps-lobby-refresh-btn" type="button" disabled="@_busy" @onclick="RefreshRoomsAsync"
+                <button class="rps-lobby-refresh-btn" type="button" disabled="@_busy" @onclick="RefreshRoomsAsync"
                     title="Tải lại danh sách phòng">
-                    <i class="bi bi-arrow-clockwise @( _busy ? "rps-lobby-spin" : "" )" aria-hidden="true"></i>
-                    <span>Làm mới</span>
+                    <span class="rps-lobby-refresh-icon" aria-hidden="true">
+                        <i class="bi bi-arrow-clockwise @( _busy ? "rps-lobby-spin" : "" )"></i>
+                    </span>
+                    <span class="rps-lobby-refresh-label">Làm mới</span>
                 </button>
             </header>
 
-            <nav class="rps-lobby-quicklinks" aria-label="Liên kết nhanh">
-                <a class="rps-lobby-pill" href="/portal"><i class="bi bi-cpu me-1" aria-hidden="true"></i>Trung tâm API</a>
-                <a class="rps-lobby-pill" href="/"><i class="bi bi-house me-1" aria-hidden="true"></i>Trang Razor</a>
-                <a class="rps-lobby-pill" href="/history"><i class="bi bi-clock-history me-1" aria-hidden="true"></i>Lịch sử
-                    trận</a>
-                <a class="rps-lobby-pill" href="/howtoplay"><i class="bi bi-book me-1" aria-hidden="true"></i>Cách chơi</a>
+            <nav class="rps-hub-quicklinks" aria-label="Liên kết nhanh">
+                <a class="rps-hub-pill" href="/portal"><i class="bi bi-cpu" aria-hidden="true"></i>Trung tâm API</a>
+                <a class="rps-hub-pill" href="/"><i class="bi bi-house" aria-hidden="true"></i>Trang Razor</a>
+                <a class="rps-hub-pill" href="/history"><i class="bi bi-clock-history" aria-hidden="true"></i>Lịch sử trận</a>
+                <a class="rps-hub-pill" href="/howtoplay"><i class="bi bi-book" aria-hidden="true"></i>Cách chơi</a>
             </nav>
 
             @if (!string.IsNullOrEmpty(_message))
@@ -160,10 +160,12 @@ else
                                 <tr>
                                     <td colspan="5" class="rps-lobby-empty">
                                         <div class="rps-lobby-empty-inner">
-                                            <i class="bi bi-inbox rps-lobby-empty-ic" aria-hidden="true"></i>
-                                            <p class="mb-1">Chưa có phòng nào</p>
-                                            <p class="small text-muted mb-0">Tạo phòng mới hoặc bấm <strong
-                                                    class="text-light">Làm mới</strong>.</p>
+                                            <div class="rps-lobby-empty-visual" aria-hidden="true">
+                                                <i class="bi bi-door-open rps-lobby-empty-ic"></i>
+                                            </div>
+                                            <p class="rps-lobby-empty-title">Chưa có phòng nào</p>
+                                            <p class="rps-lobby-empty-sub">Tạo phòng mới hoặc bấm <strong
+                                                    class="rps-lobby-empty-strong">Làm mới</strong> để tải danh sách.</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -234,18 +236,18 @@ else
                         <i class="bi bi-coin me-2" aria-hidden="true"></i>Trận đang đấu — xem &amp; cược
                     </h2>
                 </div>
-                <p class="small text-muted mb-2 px-1">Chỉ phòng bật cược và đang có 2 người chơi. Phòng PIN: cần mã khi đặt cược.</p>
+                <p class="rps-lobby-betting-hint">Chỉ phòng bật cược và đang có 2 người chơi. Phòng PIN: cần mã khi đặt cược.</p>
                 @if (BettingRooms.Count == 0)
                 {
-                    <p class="small text-muted px-1 mb-0">Hiện không có phòng phù hợp.</p>
+                    <p class="rps-lobby-betting-empty"><i class="bi bi-eye-slash me-1" aria-hidden="true"></i>Hiện không có phòng phù hợp.</p>
                 }
                 else
                 {
-                    <ul class="list-unstyled mb-0 px-1">
+                    <ul class="list-unstyled mb-0 rps-lobby-betting-list">
                         @foreach (var r in BettingRooms)
                         {
-                            <li class="d-flex flex-wrap align-items-center justify-content-between gap-2 py-2 border-bottom border-secondary border-opacity-25">
-                                <span class="fw-semibold">@r.Name</span>
+                            <li class="rps-lobby-betting-item">
+                                <span class="rps-lobby-betting-name"><i class="bi bi-broadcast me-2 text-info" aria-hidden="true"></i>@r.Name</span>
                                 <a class="btn btn-sm rps-lobby-btn-join" href="@WatchHref(r)">Xem / cược</a>
                             </li>
                         }

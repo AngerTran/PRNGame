@@ -6,44 +6,77 @@
 
 <PageTitle>API phòng</PageTitle>
 
-<h1 class="h3">Rooms API</h1>
-<p class="small"><a href="/portal">← Trung tâm</a></p>
+<div class="rps-community-shell rps-tools-page">
+    <header class="rps-community-hero">
+        <p class="rps-community-kicker"><i class="bi bi-hdd-network" aria-hidden="true"></i> REST · Phòng</p>
+        <h1 class="rps-community-title">Rooms API</h1>
+        <p class="text-muted small mb-0">Tham gia bằng PIN, spectator, rời phòng, xoá phòng và xem chi tiết qua API.</p>
+    </header>
+    <nav class="rps-hub-quicklinks" aria-label="Liên kết nhanh">
+        <a class="rps-hub-pill" href="/portal"><i class="bi bi-cpu" aria-hidden="true"></i>Trung tâm</a>
+        <a class="rps-hub-pill" href="/lobby"><i class="bi bi-door-open" aria-hidden="true"></i>Sảnh</a>
+    </nav>
 
-@if (_session == null)
-{
-    <p><a href="/login">Đăng nhập</a></p>
-}
-else
-{
-    <div class="row g-3">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">Join by PIN</div>
-                <div class="card-body">
-                    <input class="form-control mb-2" @bind="_pin" placeholder="PIN" />
-                    <button type="button" class="btn btn-primary btn-sm" @onclick="JoinPinAsync">POST join-by-pin</button>
-                    <JsonApiResult Json="@_j1" Error="@_e1" />
-                </div>
+    @if (_session == null)
+    {
+        <div class="card rps-tools-guest border-secondary">
+            <div class="card-body text-center">
+                <p class="text-muted small mb-3 mb-md-0">Đăng nhập để gọi API phòng với token của bạn.</p>
+                <a class="btn btn-primary btn-sm" href="/login">Đăng nhập</a>
             </div>
         </div>
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header">Spectator / Leave / Delete</div>
-                <div class="card-body small">
-                    <input class="form-control mb-1" @bind="_roomId" placeholder="roomId" />
-                    <input class="form-control mb-2" @bind="_pin2" placeholder="PIN (tuỳ chọn spectator)" />
-                    <div class="d-flex flex-wrap gap-1">
-                        <button type="button" class="btn btn-outline-primary btn-sm" @onclick="SpecAsync">join-as-spectator</button>
-                        <button type="button" class="btn btn-outline-warning btn-sm" @onclick="LeaveAsync">leave</button>
-                        <button type="button" class="btn btn-outline-danger btn-sm" @onclick="DelAsync">delete</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="DetailsAsync">GET details</button>
+    }
+    else
+    {
+        <div class="row g-4 align-items-stretch">
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <i class="bi bi-key-fill" aria-hidden="true"></i>
+                        Join by PIN
                     </div>
-                    <JsonApiResult Json="@_j2" Error="@_e2" />
+                    <div class="card-body">
+                        <label class="rps-tools-field-label" for="rps-room-pin">Mã PIN</label>
+                        <input id="rps-room-pin" class="form-control mb-3" @bind="_pin" placeholder="PIN" autocomplete="off" />
+                        <button type="button" class="btn btn-primary btn-sm" @onclick="JoinPinAsync">
+                            <i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>POST join-by-pin
+                        </button>
+                        <JsonApiResult Json="@_j1" Error="@_e1" />
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="card h-100">
+                    <div class="card-header">
+                        <i class="bi bi-eye" aria-hidden="true"></i>
+                        Spectator / Leave / Delete
+                    </div>
+                    <div class="card-body">
+                        <label class="rps-tools-field-label" for="rps-room-id">roomId</label>
+                        <input id="rps-room-id" class="form-control mb-2" @bind="_roomId" placeholder="roomId" autocomplete="off" />
+                        <label class="rps-tools-field-label" for="rps-room-pin2">PIN (tuỳ chọn spectator)</label>
+                        <input id="rps-room-pin2" class="form-control mb-3" @bind="_pin2" placeholder="PIN (tuỳ chọn spectator)" autocomplete="off" />
+                        <div class="rps-tools-btn-grid">
+                            <button type="button" class="btn btn-outline-primary btn-sm" @onclick="SpecAsync">
+                                <i class="bi bi-binoculars" aria-hidden="true"></i>join-as-spectator
+                            </button>
+                            <button type="button" class="btn btn-outline-warning btn-sm" @onclick="LeaveAsync">
+                                <i class="bi bi-door-open" aria-hidden="true"></i>leave
+                            </button>
+                            <button type="button" class="btn btn-outline-danger btn-sm" @onclick="DelAsync">
+                                <i class="bi bi-trash3" aria-hidden="true"></i>delete
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="DetailsAsync">
+                                <i class="bi bi-info-circle" aria-hidden="true"></i>GET details
+                            </button>
+                        </div>
+                        <JsonApiResult Json="@_j2" Error="@_e2" />
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-}
+    }
+</div>
 
 @code {
     private PortalAuthState? _session;

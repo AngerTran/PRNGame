@@ -5,41 +5,48 @@
 
 <PageTitle>Điểm</PageTitle>
 
-<h1 class="h3">Điểm (Points API)</h1>
-<p class="small"><a href="/portal">← Trung tâm</a></p>
+<div class="rps-community-shell">
+    <header class="rps-community-hero">
+        <p class="rps-community-kicker"><i class="bi bi-wallet2" aria-hidden="true"></i> Cộng đồng</p>
+        <h1 class="rps-community-title">Điểm (Points API)</h1>
+    </header>
+    <nav class="rps-hub-quicklinks" aria-label="Liên kết nhanh">
+        <a class="rps-hub-pill" href="/portal"><i class="bi bi-cpu" aria-hidden="true"></i>Trung tâm</a>
+    </nav>
 
-@if (_session == null)
-{
-    <p><a href="/login">Đăng nhập</a></p>
-}
-else
-{
-    <div class="card mb-3">
-        <div class="card-body">
-            <h2 class="h6 mb-2">GET api/v1/points/current</h2>
-            <p class="mb-0 fs-4">@_myPoints điểm</p>
-            <button type="button" class="btn btn-sm btn-outline-primary mt-2" @onclick="RefreshMineAsync">Làm mới</button>
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="card-header">GET api/v1/points/&#123;userId&#125;</div>
-        <div class="card-body">
-            <div class="input-group" style="max-width:28rem">
-                <input class="form-control" @bind="_otherId" placeholder="Guid" />
-                <button type="button" class="btn btn-primary" @onclick="LoadOtherAsync">Xem</button>
+    @if (_session == null)
+    {
+        <p class="mb-0"><a href="/login">Đăng nhập</a></p>
+    }
+    else
+    {
+        <div class="card mb-3 rps-profile-highlight">
+            <div class="card-body">
+                <p class="rps-community-api-label mb-2">GET api/v1/points/current</p>
+                <p class="mb-0 fs-4 fw-semibold">@_myPoints điểm</p>
+                <button type="button" class="btn btn-sm btn-outline-primary mt-3" @onclick="RefreshMineAsync">Làm mới</button>
             </div>
-            @if (_otherPoints.HasValue)
-            {
-                <p class="mt-2 mb-0">Điểm: <strong>@_otherPoints</strong></p>
-            }
-            @if (!string.IsNullOrEmpty(_otherErr))
-            {
-                <p class="text-danger small mt-2">@_otherErr</p>
-            }
         </div>
-    </div>
-}
+
+        <div class="card">
+            <div class="card-header">GET api/v1/points/&#123;userId&#125;</div>
+            <div class="card-body">
+                <div class="input-group">
+                    <input class="form-control" @bind="_otherId" placeholder="Guid" />
+                    <button type="button" class="btn btn-primary" @onclick="LoadOtherAsync">Xem</button>
+                </div>
+                @if (_otherPoints.HasValue)
+                {
+                    <p class="mt-3 mb-0">Điểm: <strong>@_otherPoints</strong></p>
+                }
+                @if (!string.IsNullOrEmpty(_otherErr))
+                {
+                    <p class="text-danger small mt-2 mb-0">@_otherErr</p>
+                }
+            </div>
+        </div>
+    }
+</div>
 
 @code {
     private PortalAuthState? _session;

@@ -14,16 +14,16 @@
 <body class="rps-razor">
     <header class="rps-razor-header mb-0">
         <div class="rps-razor-header-inner">
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                <a href="/" class="text-decoration-none d-flex align-items-center gap-2">
-                    <span class="fs-4" aria-hidden="true">🎮</span>
-                    <strong class="rps-brand-mark fs-5 mb-0">Kéo Búa Bao Online</strong>
+            <div class="rps-razor-header-bar d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <a href="/" class="rps-razor-brand text-decoration-none d-flex align-items-center gap-2">
+                    <span class="rps-razor-brand-icon" aria-hidden="true"><i class="bi bi-controller"></i></span>
+                    <strong class="rps-brand-mark rps-razor-brand-title mb-0">Kéo Búa Bao Online</strong>
                 </a>
-                <nav class="rps-razor-nav d-flex flex-wrap align-items-center gap-2 gap-md-3">
-                    <a class="nav-link-style text-decoration-none" asp-page="/Index"><i class="bi bi-house-door-fill me-1"></i>Trang chủ</a>
-                    <a class="nav-link-style text-decoration-none" href="/lobby"><i class="bi bi-controller me-1"></i>Sảnh</a>
-                    <a class="nav-link-style text-decoration-none" href="/register"><i class="bi bi-person-plus me-1"></i>Đăng ký</a>
-                    <a class="btn btn-sm btn-primary" href="/login"><i class="bi bi-box-arrow-in-right me-1"></i>Đăng nhập</a>
+                <nav class="rps-razor-nav d-flex flex-wrap align-items-center" aria-label="Điều hướng">
+                    <a class="rps-razor-nav-link" asp-page="/Index"><i class="bi bi-house-door-fill" aria-hidden="true"></i>Trang chủ</a>
+                    <a class="rps-razor-nav-link" href="/lobby"><i class="bi bi-controller" aria-hidden="true"></i>Sảnh</a>
+                    <a class="rps-razor-nav-link" href="/register"><i class="bi bi-person-plus" aria-hidden="true"></i>Đăng ký</a>
+                    <a class="btn btn-sm btn-primary rps-razor-nav-login" href="/login"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>Đăng nhập</a>
                 </nav>
             </div>
         </div>
@@ -34,9 +34,8 @@
         </div>
     </main>
     <footer class="rps-razor-footer small py-3 mt-auto">
-        <div class="rps-razor-footer-inner d-flex flex-wrap align-items-center gap-2 justify-content-between">
+        <div class="rps-razor-footer-inner d-flex flex-wrap align-items-center gap-2">
             <span><i class="bi bi-cpu me-1"></i>ASP.NET Core · Razor + Blazor · SignalR</span>
-            <a class="text-decoration-none rps-razor-footer-link" href="/lobby">Sảnh chơi →</a>
         </div>
     </footer>
     @await RenderSectionAsync("Scripts", required: false)

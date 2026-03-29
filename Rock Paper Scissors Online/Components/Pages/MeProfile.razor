@@ -8,76 +8,95 @@
 
 @if (!_ready)
 {
-    <p>Đang tải…</p>
+    <div class="rps-community-shell">
+        <p class="rps-community-loading mb-0">Đang tải…</p>
+    </div>
 }
 else if (_session == null)
 {
-    <p><a href="/login">Đăng nhập</a></p>
+    <div class="rps-community-shell">
+        <header class="rps-community-hero">
+            <p class="rps-community-kicker"><i class="bi bi-person-badge" aria-hidden="true"></i> Cộng đồng</p>
+            <h1 class="rps-community-title">Hồ sơ (Profile API)</h1>
+        </header>
+        <p class="mb-0"><a href="/login">Đăng nhập</a></p>
+    </div>
 }
 else
 {
-    <h1 class="h3">Hồ sơ (Profile API)</h1>
-    <p class="small"><a href="/portal">← Trung tâm</a></p>
+    <div class="rps-community-shell">
+        <header class="rps-community-hero">
+            <p class="rps-community-kicker"><i class="bi bi-person-badge" aria-hidden="true"></i> Cộng đồng</p>
+            <h1 class="rps-community-title">Hồ sơ (Profile API)</h1>
+        </header>
+        <nav class="rps-hub-quicklinks" aria-label="Liên kết nhanh">
+            <a class="rps-hub-pill" href="/portal"><i class="bi bi-cpu" aria-hidden="true"></i>Trung tâm</a>
+        </nav>
 
-    <ul class="nav nav-tabs mb-3 flex-wrap">
-        <li class="nav-item"><button type="button" class="nav-link @C(0)" @onclick='() => _t=0'>Tổng quan (tôi)</button></li>
-        <li class="nav-item"><button type="button" class="nav-link @C(3)" @onclick='() => _t=3'>Hồ sơ người khác</button></li>
-        <li class="nav-item"><button type="button" class="nav-link @C(1)" @onclick='() => _t=1'>GET .../stats (raw)</button></li>
-        <li class="nav-item"><button type="button" class="nav-link @C(2)" @onclick='() => _t=2'>GET .../history</button></li>
-    </ul>
-
-    @if (_t == 0 && _profile != null)
-    {
-        <div class="card mb-3">
-            <div class="card-body">
-                <h2 class="h5">@_profile.User.Username</h2>
-                <p class="small text-muted mb-1">@_profile.User.Email</p>
-                <p>Điểm: @_profile.User.Points · Trận: @_profile.Stats.GamesPlayed (thắng @_profile.Stats.GamesWon)</p>
-            </div>
-        </div>
-    }
-
-    @if (_t == 1)
-    {
-        <button type="button" class="btn btn-sm btn-primary mb-2" @onclick="LoadStatsRawAsync">Tải api/v1/profile/@(_session.UserId)/stats</button>
-        <JsonApiResult Json="@_statsRaw" Error="@_statsErr" />
-    }
-
-    @if (_t == 2)
-    {
-        <button type="button" class="btn btn-sm btn-primary mb-2" @onclick="LoadHistoryAsync">Tải history</button>
-        <ul class="list-group small">
-            @foreach (var g in _hist?.RecentGames ?? new List<GameHistoryDto>())
-            {
-                <li class="list-group-item">@g.Opponent — @g.Result · @(g.PointsEarned >= 0 ? "+" : "")@g.PointsEarned điểm · @g.Timestamp.ToLocalTime():g</li>
-            }
+        <ul class="nav nav-tabs mb-3 flex-wrap">
+            <li class="nav-item"><button type="button" class="nav-link @C(0)" @onclick='() => _t=0'>Tổng quan (tôi)</button></li>
+            <li class="nav-item"><button type="button" class="nav-link @C(3)" @onclick='() => _t=3'>Hồ sơ người khác</button></li>
+            <li class="nav-item"><button type="button" class="nav-link @C(1)" @onclick='() => _t=1'>GET .../stats (raw)</button></li>
+            <li class="nav-item"><button type="button" class="nav-link @C(2)" @onclick='() => _t=2'>GET .../history</button></li>
         </ul>
-        <JsonApiResult Json="@_histRaw" Error="@_histErr" />
-    }
 
-    @if (_t == 3)
-    {
-        <p class="small text-muted">Gọi <code>GET api/v1/profile/&#123;userId&#125;</code> với GUID người chơi khác.</p>
-        <div class="input-group mb-3" style="max-width:32rem">
-            <input class="form-control" @bind="_otherGuid" placeholder="Guid người chơi" />
-            <button type="button" class="btn btn-primary" @onclick="LoadOtherProfileAsync">Tải hồ sơ</button>
-        </div>
-        @if (!string.IsNullOrEmpty(_otherErr))
+        @if (_t == 0 && _profile != null)
         {
-            <div class="alert alert-danger py-2 small">@_otherErr</div>
-        }
-        @if (_otherProfile != null)
-        {
-            <div class="card mb-3">
+            <div class="card mb-3 rps-profile-highlight">
                 <div class="card-body">
-                    <h2 class="h5">@_otherProfile.User.Username</h2>
-                    <p class="small text-muted mb-1">@_otherProfile.User.Email</p>
-                    <p class="mb-0">Điểm: @_otherProfile.User.Points · Trận: @_otherProfile.Stats.GamesPlayed (thắng @_otherProfile.Stats.GamesWon)</p>
+                    <h2 class="h5">@_profile.User.Username</h2>
+                    <p class="small text-muted mb-1">@_profile.User.Email</p>
+                    <p class="mb-0">Điểm: @_profile.User.Points · Trận: @_profile.Stats.GamesPlayed (thắng @_profile.Stats.GamesWon)</p>
                 </div>
             </div>
-            <p class="small text-muted mb-0">Lịch sử trận qua <code>GET .../history</code> chỉ cho tài khoản của bạn (bảo mật). Xem hồ sơ công khai ở tab trên.</p>
         }
-    }
+
+        @if (_t == 1)
+        {
+            <div class="rps-community-toolbar">
+                <button type="button" class="btn btn-sm btn-primary" @onclick="LoadStatsRawAsync">Tải api/v1/profile/@(_session.UserId)/stats</button>
+            </div>
+            <JsonApiResult Json="@_statsRaw" Error="@_statsErr" />
+        }
+
+        @if (_t == 2)
+        {
+            <div class="rps-community-toolbar">
+                <button type="button" class="btn btn-sm btn-primary" @onclick="LoadHistoryAsync">Tải history</button>
+            </div>
+            <ul class="list-group small">
+                @foreach (var g in _hist?.RecentGames ?? new List<GameHistoryDto>())
+                {
+                    <li class="list-group-item">@g.Opponent — @g.Result · @(g.PointsEarned >= 0 ? "+" : "")@g.PointsEarned điểm · @g.Timestamp.ToLocalTime():g</li>
+                }
+            </ul>
+            <JsonApiResult Json="@_histRaw" Error="@_histErr" />
+        }
+
+        @if (_t == 3)
+        {
+            <p class="small text-muted">Gọi <code>GET api/v1/profile/&#123;userId&#125;</code> với GUID người chơi khác.</p>
+            <div class="input-group mb-3">
+                <input class="form-control" @bind="_otherGuid" placeholder="Guid người chơi" />
+                <button type="button" class="btn btn-primary" @onclick="LoadOtherProfileAsync">Tải hồ sơ</button>
+            </div>
+            @if (!string.IsNullOrEmpty(_otherErr))
+            {
+                <div class="alert alert-danger py-2 small">@_otherErr</div>
+            }
+            @if (_otherProfile != null)
+            {
+                <div class="card mb-3 rps-profile-highlight">
+                    <div class="card-body">
+                        <h2 class="h5">@_otherProfile.User.Username</h2>
+                        <p class="small text-muted mb-1">@_otherProfile.User.Email</p>
+                        <p class="mb-0">Điểm: @_otherProfile.User.Points · Trận: @_otherProfile.Stats.GamesPlayed (thắng @_otherProfile.Stats.GamesWon)</p>
+                    </div>
+                </div>
+                <p class="small text-muted mb-0">Lịch sử trận qua <code>GET .../history</code> chỉ cho tài khoản của bạn (bảo mật). Xem hồ sơ công khai ở tab trên.</p>
+            }
+        }
+    </div>
 }
 
 @code {

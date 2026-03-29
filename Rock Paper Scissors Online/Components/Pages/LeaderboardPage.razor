@@ -5,57 +5,64 @@
 
 <PageTitle>Bảng xếp hạng</PageTitle>
 
-<h1 class="h3">Bảng xếp hạng</h1>
-<p class="small"><a href="/portal">← Trung tâm</a></p>
+<div class="rps-community-shell">
+    <header class="rps-community-hero">
+        <p class="rps-community-kicker"><i class="bi bi-trophy" aria-hidden="true"></i> Cộng đồng</p>
+        <h1 class="rps-community-title">Bảng xếp hạng</h1>
+    </header>
+    <nav class="rps-hub-quicklinks" aria-label="Liên kết nhanh">
+        <a class="rps-hub-pill" href="/portal"><i class="bi bi-cpu" aria-hidden="true"></i>Trung tâm</a>
+    </nav>
 
-@if (!_ready)
-{
-    <p>Đang tải…</p>
-}
-else
-{
-    <div class="mb-3 d-flex flex-wrap gap-2">
-        <button type="button" class="btn btn-sm btn-outline-primary" @onclick="LoadAllAsync">Tải lại</button>
-        @if (_session != null)
-        {
-            <button type="button" class="btn btn-sm btn-primary" @onclick="LoadMyRankAsync">Hạng của tôi (API)</button>
-        }
-    </div>
+    @if (!_ready)
+    {
+        <p class="rps-community-loading mb-0">Đang tải…</p>
+    }
+    else
+    {
+        <div class="rps-community-toolbar">
+            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="LoadAllAsync">Tải lại</button>
+            @if (_session != null)
+            {
+                <button type="button" class="btn btn-sm btn-primary" @onclick="LoadMyRankAsync">Hạng của tôi (API)</button>
+            }
+        </div>
 
-    <JsonApiResult Json="@_rankJson" Error="@_rankErr" />
+        <JsonApiResult Json="@_rankJson" Error="@_rankErr" />
 
-    <h2 class="h5 mt-4">Top (api/v1/leaderboard/top)</h2>
-    <div class="table-responsive">
-        <table class="table table-sm">
-            <thead><tr><th>#</th><th>User</th><th>Điểm</th><th>Thắng</th><th>Trận</th></tr></thead>
-            <tbody>
-                @foreach (var row in _top ?? new List<LeaderBoardDto>())
-                {
-                    <tr>
-                        <td>@row.Rank</td>
-                        <td>@row.Username</td>
-                        <td>@row.Points</td>
-                        <td>@row.gamesWon</td>
-                        <td>@row.gamesPlayed</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
+        <h2 class="h5">Top (api/v1/leaderboard/top)</h2>
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead><tr><th>#</th><th>User</th><th>Điểm</th><th>Thắng</th><th>Trận</th></tr></thead>
+                <tbody>
+                    @foreach (var row in _top ?? new List<LeaderBoardDto>())
+                    {
+                        <tr>
+                            <td>@row.Rank</td>
+                            <td>@row.Username</td>
+                            <td>@row.Points</td>
+                            <td>@row.gamesWon</td>
+                            <td>@row.gamesPlayed</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
 
-    <h2 class="h5 mt-4">Toàn bộ (api/v1/leaderboard)</h2>
-    <div class="table-responsive">
-        <table class="table table-sm">
-            <thead><tr><th>#</th><th>User</th><th>Điểm</th></tr></thead>
-            <tbody>
-                @foreach (var row in _full ?? new List<LeaderBoardDto>())
-                {
-                    <tr><td>@row.Rank</td><td>@row.Username</td><td>@row.Points</td></tr>
-                }
-            </tbody>
-        </table>
-    </div>
-}
+        <h2 class="h5">Toàn bộ (api/v1/leaderboard)</h2>
+        <div class="table-responsive">
+            <table class="table table-sm">
+                <thead><tr><th>#</th><th>User</th><th>Điểm</th></tr></thead>
+                <tbody>
+                    @foreach (var row in _full ?? new List<LeaderBoardDto>())
+                    {
+                        <tr><td>@row.Rank</td><td>@row.Username</td><td>@row.Points</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
 
 @code {
     private bool _ready;

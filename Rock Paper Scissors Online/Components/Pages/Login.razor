@@ -6,30 +6,38 @@
 <PageTitle>Đăng nhập</PageTitle>
 
 <div class="rps-auth-page">
-<AuthBrandSide Subtitle="Đăng nhập để vào sảnh và đấu với bạn bè." />
-<div class="rps-form-narrow rps-auth-panel">
-<h1 class="h2">Đăng nhập</h1>
-<p class="text-muted mb-4">Nhập tên đăng nhập hoặc email.</p>
+    <AuthBrandSide Subtitle="Đăng nhập để vào sảnh và đấu với bạn bè." />
+    <div class="rps-form-narrow rps-auth-panel">
+        <header class="rps-auth-panel-head">
+            <h1 class="h2 mb-0">Đăng nhập</h1>
+            <p class="text-muted mb-0">Nhập tên đăng nhập hoặc email.</p>
+        </header>
 
-<EditForm Model="_model" OnValidSubmit="SubmitAsync">
-    <DataAnnotationsValidator />
-    <ValidationSummary class="text-danger" />
-    <div class="mb-3">
-        <label class="form-label">Tài khoản</label>
-        <InputText class="form-control" @bind-Value="_model.Credential" />
+        <EditForm Model="_model" OnValidSubmit="SubmitAsync">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" />
+            <div class="rps-auth-fields">
+                <div class="mb-3">
+                    <label class="form-label">Tài khoản</label>
+                    <InputText class="form-control" @bind-Value="_model.Credential" autocomplete="username" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Mật khẩu</label>
+                    <InputText type="password" class="form-control" @bind-Value="_model.Password" autocomplete="current-password" />
+                </div>
+            </div>
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <div class="alert alert-danger">@_error</div>
+            }
+            <button class="btn btn-primary" type="submit" disabled="@_busy">@(_busy ? "Đang xử lý…" : "Đăng nhập")</button>
+        </EditForm>
+        <p class="mt-4 mb-0 small rps-auth-footer-links">
+            <a href="/register">Chưa có tài khoản? Đăng ký</a>
+            <span class="rps-auth-footer-sep" aria-hidden="true">·</span>
+            <a href="/">Home</a>
+        </p>
     </div>
-    <div class="mb-3">
-        <label class="form-label">Mật khẩu</label>
-        <InputText type="password" class="form-control" @bind-Value="_model.Password" autocomplete="current-password" />
-    </div>
-    @if (!string.IsNullOrEmpty(_error))
-    {
-        <div class="alert alert-danger">@_error</div>
-    }
-    <button class="btn btn-primary" type="submit" disabled="@_busy">@(_busy ? "Đang xử lý…" : "Đăng nhập")</button>
-</EditForm>
-<p class="mt-4 mb-0 small"><a href="/register">Chưa có tài khoản? Đăng ký</a> · <a href="/">Home</a></p>
-</div>
 </div>
 
 @code {

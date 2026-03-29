@@ -5,7 +5,10 @@
 <PageTitle>Health API</PageTitle>
 
 <h1 class="h3">Health API</h1>
-<p class="small">Không cần đăng nhập · <a href="/portal">← Trung tâm</a></p>
+<p class="small text-muted mb-2">Không cần đăng nhập</p>
+<nav class="rps-hub-quicklinks" aria-label="Liên kết nhanh">
+    <a class="rps-hub-pill" href="/portal"><i class="bi bi-cpu" aria-hidden="true"></i>Trung tâm</a>
+</nav>
 
 <div class="d-flex flex-wrap gap-1 mb-2">
     <button type="button" class="btn btn-sm btn-outline-primary" @onclick="@(() => Hit(() => Api.HealthBasicAsync()))">GET /health</button>
