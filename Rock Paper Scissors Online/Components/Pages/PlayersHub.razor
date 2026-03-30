@@ -1,5 +1,6 @@
 @page "/players"
 @rendermode InteractiveServer
+@implements IAsyncDisposable
 @inject GameApiService Api
 @inject AuthTokenStore Auth
 
@@ -43,6 +44,10 @@
             @if (_loadingOnline) { <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> }
             Làm mới
         </button>
+        <button class="btn btn-outline-light" type="button" @onclick="ToggleAutoRefresh">
+            @(_autoRefreshEnabled ? "Tắt tự động" : "Bật tự động")
+        </button>
+        <span class="small text-muted">Tự cập nhật mỗi 5 giây</span>
         @if (_session != null)
         {
             <button class="btn btn-outline-light" type="button" disabled="@_loadingOnline" @onclick="RefreshInvitationsButtonAsync">Làm mới lời mời</button>
@@ -343,6 +348,10 @@
 
     private List<OnlineDisplayRow> _onlineDisplayRows = new();
     private OnlineListSource _onlineListSource;
+    private CancellationTokenSource? _autoRefreshCts;
+    private bool _autoRefreshEnabled = true;
+
+    private static readonly TimeSpan AutoRefreshInterval = TimeSpan.FromSeconds(5);
 
     private void RebuildOnlineDisplayRows()
     {
@@ -386,6 +395,7 @@
         _session = await Auth.LoadAsync();
         ClearToasts();
         await RefreshOnlineAsync();
+        StartAutoRefreshLoop();
         StateHasChanged();
     }
 
@@ -394,6 +404,15 @@
         _tab = tab;
         if (tab == 0)
             await RefreshOnlineAsync();
+    }
+
+    private void ToggleAutoRefresh()
+    {
+        _autoRefreshEnabled = !_autoRefreshEnabled;
+        if (_autoRefreshEnabled)
+            _toastOk = "Đã bật tự động đồng bộ.";
+        else
+            _toastOk = "Đã tắt tự động đồng bộ.";
     }
 
     private string TabClass(int i) => _tab == i ? "active" : "";
@@ -406,11 +425,19 @@
         _toastOk = _toastErr = null;
     }
 
-    private async Task RefreshOnlineAsync()
+    private async Task RefreshOnlineAsync() => await RefreshOnlineCoreAsync(clearToasts: true, showLoading: true);
+
+    private async Task RefreshOnlineSilentAsync() => await RefreshOnlineCoreAsync(clearToasts: false, showLoading: false);
+
+    private async Task RefreshOnlineCoreAsync(bool clearToasts, bool showLoading)
     {
-        ClearToasts();
-        _loadingOnline = true;
-        StateHasChanged();
+        if (clearToasts)
+            ClearToasts();
+        if (showLoading)
+        {
+            _loadingOnline = true;
+            StateHasChanged();
+        }
         try
         {
             if (_session != null)
@@ -447,8 +474,47 @@
         }
         finally
         {
-            _loadingOnline = false;
+            if (showLoading)
+                _loadingOnline = false;
         }
+    }
+
+    private void StartAutoRefreshLoop()
+    {
+        _autoRefreshCts?.Cancel();
+        _autoRefreshCts?.Dispose();
+        _autoRefreshCts = new CancellationTokenSource();
+        var token = _autoRefreshCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (!token.IsCancellationRequested)
+                {
+                    await Task.Delay(AutoRefreshInterval, token);
+
+                    if (token.IsCancellationRequested || !_autoRefreshEnabled || _tab != 0)
+                        continue;
+                    if (_loadingOnline || _busyInviteId != null || _busyInviteAction != null)
+                        continue;
+
+                    await InvokeAsync(async () =>
+                    {
+                        await RefreshOnlineSilentAsync();
+                        StateHasChanged();
+                    });
+                }
+            }
+            catch (TaskCanceledException)
+            {
+                // ignored: normal when component disposed
+            }
+            catch (ObjectDisposedException)
+            {
+                // ignored: normal when component disposed
+            }
+        }, token);
     }
 
     /// <summary>Chỉ tải lại danh sách lời mời (không xóa toast thành công từ đồng ý/từ chối).</summary>
@@ -476,7 +542,10 @@
         {
             var (ok, _, err) = await Api.PlayersInviteAsync(playerId, $"Lời mời từ trang Người chơi{(string.IsNullOrEmpty(displayName) ? "" : $" → {displayName}")}");
             if (ok)
+            {
                 _toastOk = "Đã gửi lời mời.";
+                await RefreshOnlineSilentAsync();
+            }
             else
                 _toastErr = err ?? "Gửi lời mời thất bại.";
         }
@@ -497,6 +566,7 @@
             {
                 _toastOk = msg ?? "Bạn đã đồng ý.";
                 await LoadInvitationsOnlyAsync();
+                await RefreshOnlineSilentAsync();
             }
             else
                 _toastErr = err ?? "Không chấp nhận được lời mời.";
@@ -518,6 +588,7 @@
             {
                 _toastOk = msg ?? "Đã từ chối.";
                 await LoadInvitationsOnlyAsync();
+                await RefreshOnlineSilentAsync();
             }
             else
                 _toastErr = err ?? "Không từ chối được.";
@@ -566,5 +637,12 @@
             _errDetail = err;
             _toastErr = err ?? "Không tải được chi tiết.";
         }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _autoRefreshCts?.Cancel();
+        _autoRefreshCts?.Dispose();
+        return ValueTask.CompletedTask;
     }
 }
