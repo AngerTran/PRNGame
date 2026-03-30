@@ -1,4 +1,5 @@
 using Microsoft.IdentityModel.Tokens;
+using Rock_Paper_Scissors_Online.Configuration;
 using Rock_Paper_Scissors_Online.Models;
 using Rock_Paper_Scissors_Online.Services.Interfaces;
 using System.IdentityModel.Tokens.Jwt;
@@ -19,7 +20,8 @@ namespace Rock_Paper_Scissors_Online.Services
         public JwtService(IConfiguration configuration)
         {
             _configuration = configuration;
-            _jwtKey = _configuration["Jwt:Key"] ?? throw new ArgumentNullException("Jwt:Key not found in configuration");
+            _jwtKey = JwtKeyResolver.Resolve(_configuration)
+                ?? throw new InvalidOperationException(JwtKeyResolver.BuildMissingKeyExceptionMessage());
             _issuer = _configuration["Jwt:Issuer"] ?? throw new ArgumentNullException("Jwt:Issuer not found in configuration");
             _audience = _configuration["Jwt:Audience"] ?? throw new ArgumentNullException("Jwt:Audience not found in configuration");
             _expiryMinutes = int.Parse(_configuration["Jwt:ExpiryMinutes"] ?? "60");

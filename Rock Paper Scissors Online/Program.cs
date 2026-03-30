@@ -23,6 +23,11 @@ namespace Rock_Paper_Scissors_Online
         {
             var builder = WebApplication.CreateBuilder(args);
 
+            // Đưa secret từ biến môi trường (Jwt__Key, JWT_KEY, …) vào Jwt:Key để mọi IConfiguration đều thấy.
+            var mergedJwt = JwtKeyResolver.Resolve(builder.Configuration);
+            if (!string.IsNullOrWhiteSpace(mergedJwt))
+                builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> { ["Jwt:Key"] = mergedJwt });
+
             // Render / Fly / Railway: biến PORT
             var port = Environment.GetEnvironmentVariable("PORT");
             if (!string.IsNullOrEmpty(port))
@@ -36,10 +41,8 @@ namespace Rock_Paper_Scissors_Online
             });
 
             var dbProvider = builder.Configuration["Database:Provider"]?.Trim() ?? "SqlServer";
-            var jwtKey = builder.Configuration["Jwt:Key"]
-                ?? throw new InvalidOperationException(
-                    "Jwt:Key chưa cấu hình. Development: thêm vào appsettings.Development.json hoặc User Secrets. "
-                    + "Production: đặt biến môi trường Jwt__Key (≥32 ký tự).");
+            var jwtKey = JwtKeyResolver.Resolve(builder.Configuration)
+                ?? throw new InvalidOperationException(JwtKeyResolver.BuildMissingKeyExceptionMessage());
             EnsureJwtKeyIsAcceptable(builder.Environment, jwtKey);
             var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "RockPaperScissorsOnline";
             var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "RockPaperScissorsClients";
