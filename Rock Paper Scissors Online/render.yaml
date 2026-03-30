@@ -1,0 +1,32 @@
+# Blueprint Render — chỉnh name/region/plan cho phù hợp.
+# Tạo Web Service trỏ Dockerfile trong repo (root = thư mục chứa file này).
+# Hoặc bỏ file này và tạo service thủ công trên dashboard.
+
+databases:
+  - name: rps-postgres
+    databaseName: rps
+    user: rps
+    plan: free
+
+services:
+  - type: web
+    name: rps-online
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: Database__Provider
+        value: Postgres
+      - key: ConnectionStrings__PostgresConnection
+        fromDatabase:
+          name: rps-postgres
+          property: connectionString
+      - key: Jwt__Key
+        sync: false
+      - key: Jwt__Issuer
+        value: RockPaperScissorsOnline
+      - key: Jwt__Audience
+        value: RockPaperScissorsClients

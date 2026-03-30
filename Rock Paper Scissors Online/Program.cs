@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
@@ -21,15 +22,44 @@ namespace Rock_Paper_Scissors_Online
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-                ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+            // Render / Fly / Railway: biến PORT
+            var port = Environment.GetEnvironmentVariable("PORT");
+            if (!string.IsNullOrEmpty(port))
+                builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
+            builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+                options.KnownNetworks.Clear();
+                options.KnownProxies.Clear();
+            });
+
+            var dbProvider = builder.Configuration["Database:Provider"]?.Trim() ?? "SqlServer";
             var jwtKey = builder.Configuration["Jwt:Key"]
                 ?? throw new InvalidOperationException("Jwt:Key is not configured.");
             var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "RockPaperScissorsOnline";
             var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "RockPaperScissorsClients";
 
-            builder.Services.AddDbContext<ApplicationDbContext>(options =>
-                options.UseSqlServer(connectionString));
+            if (dbProvider.Equals("Postgres", StringComparison.OrdinalIgnoreCase)
+                || dbProvider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase)
+                || dbProvider.Equals("Npgsql", StringComparison.OrdinalIgnoreCase))
+            {
+                var pg = builder.Configuration.GetConnectionString("PostgresConnection")
+                    ?? throw new InvalidOperationException("Connection string 'PostgresConnection' not found when Database:Provider is Postgres.");
+                builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(pg));
+            }
+            else if (dbProvider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase)
+                || dbProvider.Equals("Sql", StringComparison.OrdinalIgnoreCase))
+            {
+                var sql = builder.Configuration.GetConnectionString("DefaultConnection")
+                    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found when Database:Provider is SqlServer.");
+                builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(sql));
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    $"Database:Provider '{dbProvider}' is not supported. Use 'SqlServer' or 'Postgres'.");
+            }
 
             builder.Services.AddControllers();
             builder.Services.AddSignalR();
@@ -104,6 +134,16 @@ namespace Rock_Paper_Scissors_Online
 
             var app = builder.Build();
 
+            app.UseForwardedHeaders();
+
+            // Áp migration Postgres khi deploy (Render + PostgreSQL). SQL Server: tự quản schema/migration.
+            if (IsPostgresProvider(dbProvider))
+            {
+                using var scope = app.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                db.Database.Migrate();
+            }
+
             if (!app.Environment.IsDevelopment())
             {
                 app.UseExceptionHandler("/Error");
@@ -130,5 +170,10 @@ namespace Rock_Paper_Scissors_Online
 
             app.Run();
         }
+
+        private static bool IsPostgresProvider(string? p) =>
+            p != null && (p.Equals("Postgres", StringComparison.OrdinalIgnoreCase)
+                || p.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase)
+                || p.Equals("Npgsql", StringComparison.OrdinalIgnoreCase));
     }
 }

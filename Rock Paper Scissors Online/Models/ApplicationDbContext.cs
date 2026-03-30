@@ -31,6 +31,12 @@ public partial class ApplicationDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        var tsDefault = Database.IsNpgsql()
+            ? "now()"
+            : Database.IsSqlServer()
+                ? "(sysdatetimeoffset())"
+                : "now()";
+
         modelBuilder.Entity<Bet>(entity =>
         {
             entity.ToTable("bets");
@@ -62,7 +68,7 @@ public partial class ApplicationDbContext : DbContext
                 .HasMaxLength(255)
                 .HasColumnName("target_player_id");
             entity.Property(e => e.Timestamp)
-                .HasDefaultValueSql("(sysdatetimeoffset())")
+                .HasDefaultValueSql(tsDefault)
                 .HasColumnName("timestamp");
 
             entity.HasOne(d => d.Game).WithMany(p => p.Bets)
@@ -85,7 +91,7 @@ public partial class ApplicationDbContext : DbContext
                 .HasDefaultValue("")
                 .HasColumnName("room_id");
             entity.Property(e => e.Timestamp)
-                .HasDefaultValueSql("(sysdatetimeoffset())")
+                .HasDefaultValueSql(tsDefault)
                 .HasColumnName("timestamp");
             entity.Property(e => e.Type)
                 .HasMaxLength(50)
@@ -211,7 +217,7 @@ public partial class ApplicationDbContext : DbContext
                 .HasColumnName("allow_spectators");
             entity.Property(e => e.BestOfRounds).HasColumnName("best_of_rounds");
             entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("(sysdatetimeoffset())")
+                .HasDefaultValueSql(tsDefault)
                 .HasColumnName("created_at");
             entity.Property(e => e.CreatedBy)
                 .HasMaxLength(255)

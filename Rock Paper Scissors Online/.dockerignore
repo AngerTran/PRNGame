@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/.git
+**/.vs
+**/.idea/
+**/*.user
+**/_vb*/
+**/_vb_*/
+**/Thumbs.db
+**/.DS_Store
