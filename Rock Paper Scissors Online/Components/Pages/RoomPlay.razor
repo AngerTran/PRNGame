@@ -175,6 +175,18 @@ else
 
             <RpsDualChatPanel RoomGameHub="_hub" GameRoomId="@RoomId" />
 
+            @if (_winnerPanelVisible)
+            {
+                <div class="rps-play-winner-overlay" role="dialog" aria-modal="true" aria-labelledby="rps-winner-title">
+                    <div class="rps-play-winner-card">
+                        <p id="rps-winner-title" class="rps-play-winner-kicker">Trận đấu đã kết thúc</p>
+                        <p class="rps-play-winner-label">Người chiến thắng</p>
+                        <p class="rps-play-winner-name"><i class="bi bi-trophy-fill rps-play-winner-ic" aria-hidden="true"></i>@_gameWinnerDisplay</p>
+                        <button class="btn rps-play-winner-dismiss" type="button" @onclick="DismissWinnerPanel">Đóng</button>
+                    </div>
+                </div>
+            }
+
             @if (_revealVisible)
             {
                 <div class="rps-play-reveal-overlay" role="dialog" aria-modal="true" aria-labelledby="rps-reveal-title">
@@ -236,6 +248,8 @@ else
     private string? _hubError;
     private string? _toast;
     private string? _lastRound;
+    private bool _winnerPanelVisible;
+    private string _gameWinnerDisplay = "";
 
     private bool _revealVisible;
     private string? _revealP1Move;
@@ -408,11 +422,22 @@ else
                 _toast = "Cả hai đã sẵn sàng — chủ phòng có thể bắt đầu.";
                 return RefreshRoomUiAsync();
             });
-            _hub.On<JsonElement>("GameEnded", _ =>
+            _hub.On<JsonElement>("GameEnded", payload =>
             {
                 ClearRevealOverlay();
                 _pickSecondsLeft = null;
-                _toast = "Trận đấu kết thúc.";
+                if (TryGameEndedWinner(payload, out var winnerName) && !string.IsNullOrWhiteSpace(winnerName))
+                {
+                    _gameWinnerDisplay = winnerName.Trim();
+                    _winnerPanelVisible = true;
+                    _toast = null;
+                }
+                else
+                {
+                    _gameWinnerDisplay = "";
+                    _winnerPanelVisible = false;
+                    _toast = "Trận đấu kết thúc.";
+                }
                 return RefreshRoomUiAsync();
             });
 
@@ -556,6 +581,22 @@ else
         }
     }
 
+    private static bool TryGameEndedWinner(JsonElement root, out string? winnerUsername)
+    {
+        winnerUsername = null;
+        if (!root.TryGetProperty("data", out var d))
+            return false;
+        if (!d.TryGetProperty("winnerUsername", out var w))
+            return false;
+        winnerUsername = w.GetString();
+        return true;
+    }
+
+    private void DismissWinnerPanel()
+    {
+        _winnerPanelVisible = false;
+    }
+
     private static bool TryRoundSummary(JsonElement root, out string line)
     {
         line = "";
@@ -621,6 +662,7 @@ else
     public async ValueTask DisposeAsync()
     {
         ClearRevealOverlay();
+        _winnerPanelVisible = false;
         if (_hub != null)
             await _hub.DisposeAsync();
     }

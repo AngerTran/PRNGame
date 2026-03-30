@@ -16,13 +16,6 @@ namespace Rock_Paper_Scissors_Online.Controllers
             _leaderboardService = leaderboardService;
         }
 
-        [HttpGet("/api/v1/leaderboard")]
-        public async Task<ActionResult<IEnumerable<LeaderBoardDto>>> GetDataLeaderboard()
-        {
-            var response = await _leaderboardService.GetLeaderboardAsync();
-            return Ok(response);
-        }
-
         [HttpGet("/api/v1/leaderboard/player/{playerId:guid}/rank")]
         [Authorize]
         public async Task<ActionResult<IEnumerable<LeaderBoardDto>>> GetDataPlayer(Guid playerId)

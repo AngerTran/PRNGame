@@ -2766,6 +2766,74 @@ body.rps-razor .rps-razor-feature-card .card-body {
     font-size: 0.9rem;
 }
 
+.rps-play-winner-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1090;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(7, 11, 20, 0.88);
+    backdrop-filter: blur(10px);
+}
+
+.rps-play-winner-card {
+    width: min(28rem, 100%);
+    border-radius: var(--rps-radius);
+    border: 1px solid rgba(250, 204, 21, 0.45);
+    background: linear-gradient(165deg, rgba(30, 27, 15, 0.96), rgba(7, 11, 20, 0.94));
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(250, 204, 21, 0.12);
+    padding: 1.5rem 1.35rem 1.35rem;
+    text-align: center;
+}
+
+.rps-play-winner-kicker {
+    margin: 0 0 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--rps-muted);
+}
+
+.rps-play-winner-label {
+    margin: 0 0 0.35rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fde68a;
+}
+
+.rps-play-winner-name {
+    margin: 0 0 1.25rem;
+    font-size: clamp(1.35rem, 5vw, 1.85rem);
+    font-weight: 800;
+    color: #fef3c7;
+    line-height: 1.3;
+    word-break: break-word;
+}
+
+.rps-play-winner-ic {
+    margin-right: 0.45rem;
+    color: #fbbf24;
+    vertical-align: -0.1em;
+}
+
+.rps-play-winner-dismiss {
+    font-weight: 700;
+    padding: 0.45rem 1.35rem;
+    border-radius: 0.6rem;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    color: #e2e8f0 !important;
+    background: rgba(15, 23, 42, 0.75);
+}
+
+.rps-play-winner-dismiss:hover {
+    border-color: rgba(250, 204, 21, 0.4);
+    color: #fef3c7 !important;
+    background: rgba(30, 27, 15, 0.5);
+}
+
 /* Chat tổng + phòng — góc dưới trái (sảnh & phòng chơi) */
 .rps-dual-chat {
     position: fixed;
@@ -3238,6 +3306,270 @@ nav.rps-hub-quicklinks > a.rps-hub-pill--accent:hover {
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: rgba(148, 163, 184, 0.95);
+}
+
+/* —— Bảng xếp hạng (/leaderboard) —— */
+.rps-leaderboard .rps-lb-tagline {
+    margin: 0 0 0.25rem;
+    max-width: 36rem;
+    font-size: 0.88rem;
+    line-height: 1.45;
+    color: rgba(148, 163, 184, 0.92);
+}
+
+.rps-lb-toolbar {
+    margin-top: 0.35rem;
+}
+
+.rps-lb-btn {
+    border-radius: 0.55rem;
+    font-weight: 600;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    color: #e2e8f0 !important;
+    background: rgba(15, 23, 42, 0.55);
+    padding: 0.4rem 0.85rem;
+    transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rps-lb-btn:hover {
+    border-color: rgba(45, 212, 191, 0.45);
+    background: rgba(45, 212, 191, 0.1);
+    color: #f8fafc !important;
+}
+
+.rps-lb-btn--accent {
+    border-color: rgba(99, 102, 241, 0.4);
+    background: rgba(99, 102, 241, 0.12);
+}
+
+.rps-lb-btn--accent:hover {
+    border-color: rgba(129, 140, 248, 0.55);
+    background: rgba(99, 102, 241, 0.2);
+    box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.15);
+}
+
+.rps-lb-alert {
+    border-radius: 0.65rem;
+    border-color: rgba(250, 204, 21, 0.35);
+    background: rgba(66, 32, 6, 0.35);
+    color: #fde68a !important;
+}
+
+.rps-lb-my-rank {
+    margin-bottom: 1rem;
+}
+
+.rps-lb-my-rank .rps-json-panel {
+    border-radius: 0.65rem;
+    border: 1px solid rgba(45, 212, 191, 0.2);
+    background: rgba(7, 11, 20, 0.75) !important;
+    color: #cbd5e1 !important;
+}
+
+.rps-lb-panel {
+    border-radius: 1rem;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: linear-gradient(165deg, rgba(22, 30, 48, 0.92) 0%, rgba(11, 15, 26, 0.96) 100%);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+}
+
+.rps-lb-panel-head {
+    padding: 1.05rem 1.2rem 0.95rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    background: linear-gradient(180deg, rgba(45, 212, 191, 0.06) 0%, transparent 100%);
+}
+
+.rps-lb-panel-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #f8fafc;
+}
+
+.rps-lb-panel-sub {
+    margin: 0.25rem 0 0;
+    font-size: 0.78rem;
+    color: rgba(148, 163, 184, 0.9);
+}
+
+.rps-lb-empty {
+    padding: 2.5rem 1.25rem;
+    text-align: center;
+    color: rgba(148, 163, 184, 0.95);
+}
+
+.rps-lb-empty-ic {
+    display: block;
+    margin: 0 auto 0.75rem;
+    font-size: 2.25rem;
+    opacity: 0.45;
+}
+
+.rps-lb-table-wrap {
+    border: none;
+    border-radius: 0;
+}
+
+.rps-lb-table {
+    --rps-lb-pad-x: clamp(0.65rem, 2vw, 1rem);
+    font-size: 0.9rem;
+}
+
+.rps-lb-table thead th {
+    padding: 0.65rem var(--rps-lb-pad-x);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(148, 163, 184, 0.88) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    background: rgba(0, 0, 0, 0.28);
+}
+
+.rps-lb-th-rank {
+    width: 5.5rem;
+}
+
+.rps-lb-table tbody td {
+    padding: 0.75rem var(--rps-lb-pad-x);
+    vertical-align: middle;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+    color: #e2e8f0;
+}
+
+.rps-lb-table tbody tr:last-child td {
+    border-bottom: none !important;
+}
+
+.rps-lb-row {
+    transition: background 0.15s ease;
+}
+
+.rps-lb-row:hover {
+    background: rgba(45, 212, 191, 0.07) !important;
+}
+
+.rps-lb-row--1 {
+    background: linear-gradient(90deg, rgba(250, 204, 21, 0.12) 0%, transparent 55%);
+}
+
+.rps-lb-row--2 {
+    background: linear-gradient(90deg, rgba(203, 213, 225, 0.1) 0%, transparent 55%);
+}
+
+.rps-lb-row--3 {
+    background: linear-gradient(90deg, rgba(251, 146, 60, 0.12) 0%, transparent 55%);
+}
+
+.rps-lb-row--1:hover,
+.rps-lb-row--2:hover,
+.rps-lb-row--3:hover {
+    background: rgba(45, 212, 191, 0.09) !important;
+}
+
+.rps-lb-rank-cell {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.rps-lb-medal {
+    font-size: 1.05rem;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+}
+
+.rps-lb-medal--1 {
+    color: #fbbf24;
+}
+
+.rps-lb-medal--2 {
+    color: #cbd5e1;
+}
+
+.rps-lb-medal--3 {
+    color: #fb923c;
+}
+
+.rps-lb-rank-digit {
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: #f8fafc;
+    min-width: 1.25rem;
+}
+
+.rps-lb-rank-digit--plain {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 0.35rem;
+    border-radius: 0.45rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: rgba(226, 232, 240, 0.9);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.rps-lb-user {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.rps-lb-avatar {
+    flex-shrink: 0;
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: #0f172a;
+    background: linear-gradient(135deg, #5eead4, #818cf8);
+    box-shadow: 0 4px 14px rgba(45, 212, 191, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.rps-lb-row--1 .rps-lb-avatar {
+    background: linear-gradient(135deg, #fcd34d, #f59e0b);
+    box-shadow: 0 4px 16px rgba(251, 191, 36, 0.25);
+}
+
+.rps-lb-row--2 .rps-lb-avatar {
+    background: linear-gradient(135deg, #e2e8f0, #94a3b8);
+}
+
+.rps-lb-row--3 .rps-lb-avatar {
+    background: linear-gradient(135deg, #fdba74, #ea580c);
+}
+
+.rps-lb-username {
+    font-weight: 600;
+    color: #f1f5f9;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rps-lb-points {
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: #5eead4;
+    letter-spacing: 0.02em;
+}
+
+.rps-lb-stat {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: rgba(226, 232, 240, 0.92);
 }
 
 /* Trang Lịch sử */

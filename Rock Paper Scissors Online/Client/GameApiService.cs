@@ -358,26 +358,26 @@ public sealed class GameApiService : IDisposable
         return wrapped?.Success == true ? (true, wrapped.Data, null) : (false, null, wrapped?.Message);
     }
 
-    public async Task<(bool Ok, List<LeaderBoardDto>? Data, string? Error)> GetLeaderboardAsync()
-    {
-        using var response = await _http.GetAsync("api/v1/leaderboard");
-        var json = await response.Content.ReadAsStringAsync();
-        if (!response.IsSuccessStatusCode)
-            return (false, null, TryParseMessage(json));
-
-        var list = JsonSerializer.Deserialize<List<LeaderBoardDto>>(json, JsonOptions);
-        return (true, list, null);
-    }
-
     public async Task<(bool Ok, List<LeaderBoardDto>? Data, string? Error)> GetLeaderboardTopAsync(int top = 5)
     {
-        using var response = await _http.GetAsync($"api/v1/leaderboard/top");
-        var json = await response.Content.ReadAsStringAsync();
-        if (!response.IsSuccessStatusCode)
-            return (false, null, TryParseMessage(json));
+        try
+        {
+            using var response = await _http.GetAsync("api/v1/leaderboard/top");
+            var json = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+                return (false, null, TryParseMessage(json));
 
-        var list = JsonSerializer.Deserialize<List<LeaderBoardDto>>(json, JsonOptions);
-        return (true, list?.Take(top).ToList(), null);
+            var wrapped = JsonSerializer.Deserialize<ApiResponse<Leaderboard>>(json, JsonOptions);
+            if (wrapped?.Success != true || wrapped.Data == null)
+                return (false, null, string.IsNullOrEmpty(wrapped?.Message) ? "Phản hồi top xếp hạng không hợp lệ." : wrapped.Message);
+
+            var list = wrapped.Data.Entities?.Take(top).ToList() ?? new List<LeaderBoardDto>();
+            return (true, list, null);
+        }
+        catch (JsonException ex)
+        {
+            return (false, null, ex.Message);
+        }
     }
 
     public Task<(bool Ok, string Body, string? Error)> GetMyLeaderboardRankAsync(Guid userId) =>

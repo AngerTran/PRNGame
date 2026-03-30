@@ -1,14 +1,16 @@
 @page "/leaderboard"
 @rendermode InteractiveServer
+@using System.Globalization
 @inject GameApiService Api
 @inject AuthTokenStore Auth
 
 <PageTitle>Bảng xếp hạng</PageTitle>
 
-<div class="rps-community-shell">
+<div class="rps-community-shell rps-leaderboard">
     <header class="rps-community-hero">
         <p class="rps-community-kicker"><i class="bi bi-trophy" aria-hidden="true"></i> Cộng đồng</p>
         <h1 class="rps-community-title">Bảng xếp hạng</h1>
+        <p class="rps-lb-tagline">So tài theo điểm tích lũy — chỉ hiển thị người chơi đã có ít nhất một trận.</p>
     </header>
     <nav class="rps-hub-quicklinks" aria-label="Liên kết nhanh">
         <a class="rps-hub-pill" href="/portal"><i class="bi bi-cpu" aria-hidden="true"></i>Trung tâm</a>
@@ -20,47 +22,85 @@
     }
     else
     {
-        <div class="rps-community-toolbar">
-            <button type="button" class="btn btn-sm btn-outline-primary" @onclick="LoadAllAsync">Tải lại</button>
+        @if (!string.IsNullOrEmpty(_loadErr))
+        {
+            <div class="alert alert-warning py-2 mb-3 rps-lb-alert">@_loadErr</div>
+        }
+        <div class="rps-lb-toolbar rps-community-toolbar">
+            <button type="button" class="btn btn-sm rps-lb-btn" @onclick="LoadAllAsync">
+                <i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>Tải lại
+            </button>
             @if (_session != null)
             {
-                <button type="button" class="btn btn-sm btn-primary" @onclick="LoadMyRankAsync">Hạng của tôi (API)</button>
+                <button type="button" class="btn btn-sm rps-lb-btn rps-lb-btn--accent" @onclick="LoadMyRankAsync">
+                    <i class="bi bi-person-badge me-1" aria-hidden="true"></i>Hạng của tôi
+                </button>
             }
         </div>
 
-        <JsonApiResult Json="@_rankJson" Error="@_rankErr" />
-
-        <h2 class="h5">Top (api/v1/leaderboard/top)</h2>
-        <div class="table-responsive">
-            <table class="table table-sm">
-                <thead><tr><th>#</th><th>User</th><th>Điểm</th><th>Thắng</th><th>Trận</th></tr></thead>
-                <tbody>
-                    @foreach (var row in _top ?? new List<LeaderBoardDto>())
-                    {
-                        <tr>
-                            <td>@row.Rank</td>
-                            <td>@row.Username</td>
-                            <td>@row.Points</td>
-                            <td>@row.gamesWon</td>
-                            <td>@row.gamesPlayed</td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+        <div class="rps-lb-my-rank">
+            <JsonApiResult Json="@_rankJson" Error="@_rankErr" />
         </div>
 
-        <h2 class="h5">Toàn bộ (api/v1/leaderboard)</h2>
-        <div class="table-responsive">
-            <table class="table table-sm">
-                <thead><tr><th>#</th><th>User</th><th>Điểm</th></tr></thead>
-                <tbody>
-                    @foreach (var row in _full ?? new List<LeaderBoardDto>())
-                    {
-                        <tr><td>@row.Rank</td><td>@row.Username</td><td>@row.Points</td></tr>
-                    }
-                </tbody>
-            </table>
-        </div>
+        <section class="rps-lb-panel" aria-labelledby="rps-lb-heading">
+            <div class="rps-lb-panel-head">
+                <h2 id="rps-lb-heading" class="rps-lb-panel-title">Top xếp hạng</h2>
+                <p class="rps-lb-panel-sub">Cập nhật theo dữ liệu server</p>
+            </div>
+            @if (_top == null || _top.Count == 0)
+            {
+                <div class="rps-lb-empty">
+                    <i class="bi bi-inbox rps-lb-empty-ic" aria-hidden="true"></i>
+                    <p class="mb-0">Chưa có dữ liệu xếp hạng.</p>
+                    <p class="small text-muted mb-0 mt-1">Chơi vài trận hoặc thử tải lại.</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive rps-lb-table-wrap">
+                    <table class="table table-borderless rps-lb-table mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col" class="rps-lb-th-rank">Hạng</th>
+                                <th scope="col">Người chơi</th>
+                                <th scope="col" class="text-end">Điểm</th>
+                                <th scope="col" class="text-end d-none d-sm-table-cell">Thắng</th>
+                                <th scope="col" class="text-end">Trận</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in _top)
+                            {
+                                <tr class="@RowClass(row.Rank)">
+                                    <td>
+                                        @if (row.Rank <= 3)
+                                        {
+                                            <span class="rps-lb-rank-cell">
+                                                <i class="bi bi-trophy-fill @MedalClass(row.Rank)" aria-hidden="true"></i>
+                                                <span class="rps-lb-rank-digit">@row.Rank</span>
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="rps-lb-rank-digit rps-lb-rank-digit--plain">@row.Rank</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="rps-lb-user">
+                                            <span class="rps-lb-avatar" aria-hidden="true">@UserInitials(row.Username)</span>
+                                            <span class="rps-lb-username">@row.Username</span>
+                                        </div>
+                                    </td>
+                                    <td class="text-end"><span class="rps-lb-points">@row.Points.ToString("N0", CultureInfo.InvariantCulture)</span></td>
+                                    <td class="text-end d-none d-sm-table-cell"><span class="rps-lb-stat">@row.gamesWon</span></td>
+                                    <td class="text-end"><span class="rps-lb-stat">@row.gamesPlayed</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
     }
 </div>
 
@@ -68,9 +108,9 @@
     private bool _ready;
     private PortalAuthState? _session;
     private List<LeaderBoardDto>? _top;
-    private List<LeaderBoardDto>? _full;
     private string? _rankJson;
     private string? _rankErr;
+    private string? _loadErr;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -83,10 +123,11 @@
 
     private async Task LoadAllAsync()
     {
-        var (ok1, top, _) = await Api.GetLeaderboardTopAsync(10);
-        var (ok2, full, _) = await Api.GetLeaderboardAsync();
-        _top = top;
-        _full = full;
+        _loadErr = null;
+        var (ok, top, err) = await Api.GetLeaderboardTopAsync(10);
+        _top = ok ? top : null;
+        if (!ok)
+            _loadErr = err ?? "Không tải được dữ liệu xếp hạng.";
     }
 
     private async Task LoadMyRankAsync()
@@ -97,5 +138,31 @@
         var (ok, body, err) = await Api.GetMyLeaderboardRankAsync(_session.UserId);
         if (!ok) _rankErr = err;
         else _rankJson = body;
+    }
+
+    private static string RowClass(int rank) => rank switch
+    {
+        1 => "rps-lb-row rps-lb-row--1",
+        2 => "rps-lb-row rps-lb-row--2",
+        3 => "rps-lb-row rps-lb-row--3",
+        _ => "rps-lb-row",
+    };
+
+    private static string MedalClass(int rank) => rank switch
+    {
+        1 => "rps-lb-medal rps-lb-medal--1",
+        2 => "rps-lb-medal rps-lb-medal--2",
+        3 => "rps-lb-medal rps-lb-medal--3",
+        _ => "",
+    };
+
+    private static string UserInitials(string? username)
+    {
+        if (string.IsNullOrWhiteSpace(username))
+            return "?";
+        var t = username.Trim();
+        if (t.Length == 1)
+            return t.ToUpperInvariant();
+        return $"{char.ToUpperInvariant(t[0])}{char.ToUpperInvariant(t[1])}";
     }
 }
