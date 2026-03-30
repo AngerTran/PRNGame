@@ -24,8 +24,9 @@ services:
         fromDatabase:
           name: rps-postgres
           property: connectionString
+      # Production cần Jwt__Key ≥32 ký tự. generateValue: tự tạo khi apply Blueprint.
       - key: Jwt__Key
-        sync: false
+        generateValue: true
       - key: Jwt__Issuer
         value: RockPaperScissorsOnline
       - key: Jwt__Audience
