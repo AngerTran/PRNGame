@@ -119,25 +119,76 @@ public sealed class GameApiService : IDisposable
 
     public async Task<(bool Ok, string? Error, PortalAuthState? State)> LoginAsync(string credential, string password)
     {
-        var body = JsonContent.Create(
-            new LoginDto { login_credential = credential, password = password },
-            options: CamelWrite);
-        using var response = await _http.PostAsync("api/v1/user/login", body);
-        var json = await response.Content.ReadAsStringAsync();
-        if (!response.IsSuccessStatusCode)
-            return (false, TryParseMessage(json) ?? response.ReasonPhrase, null);
-
-        using var doc = JsonDocument.Parse(json);
-        var data = doc.RootElement.GetProperty("data");
-        var state = new PortalAuthState
+        try
         {
-            AccessToken = data.GetProperty("token").GetString() ?? "",
-            RefreshToken = data.GetProperty("refreshToken").GetString() ?? "",
-            UserId = data.GetProperty("user").GetProperty("id").GetGuid(),
-            Username = data.GetProperty("user").GetProperty("username").GetString() ?? ""
-        };
-        await _auth.SaveAsync(state);
-        return (true, null, state);
+            var body = JsonContent.Create(
+                new LoginDto { login_credential = credential, password = password },
+                options: CamelWrite);
+            using var response = await _http.PostAsync("api/v1/user/login", body);
+            var json = await response.Content.ReadAsStringAsync();
+            if (!response.IsSuccessStatusCode)
+                return (false, TryParseMessage(json) ?? response.ReasonPhrase, null);
+
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("data", out var data))
+                return (false, "Phản hồi máy chủ thiếu dữ liệu.", null);
+
+            if (!data.TryGetProperty("token", out var tokenEl)
+                || !data.TryGetProperty("refreshToken", out var refreshEl)
+                || !data.TryGetProperty("user", out var userEl))
+                return (false, "Phản hồi đăng nhập không đầy đủ.", null);
+
+            if (!userEl.TryGetProperty("id", out var idEl) || !userEl.TryGetProperty("username", out var nameEl))
+                return (false, "Phản hồi đăng nhập thiếu thông tin người dùng.", null);
+
+            Guid userId;
+            if (!idEl.TryGetGuid(out userId))
+            {
+                if (idEl.ValueKind == JsonValueKind.String && Guid.TryParse(idEl.GetString(), out var parsed))
+                    userId = parsed;
+                else
+                    return (false, "Định dạng ID người dùng không hợp lệ.", null);
+            }
+
+            var state = new PortalAuthState
+            {
+                AccessToken = tokenEl.GetString() ?? "",
+                RefreshToken = refreshEl.GetString() ?? "",
+                UserId = userId,
+                Username = nameEl.GetString() ?? ""
+            };
+
+            try
+            {
+                await _auth.SaveAsync(state);
+            }
+            catch (InvalidOperationException)
+            {
+                return (false, "Không lưu được phiên đăng nhập. Vui lòng thử lại hoặc kiểm tra cookie/local storage.", null);
+            }
+            catch (Exception)
+            {
+                return (false, "Không lưu được phiên đăng nhập trên trình duyệt. Vui lòng thử lại.", null);
+            }
+
+            return (true, null, state);
+        }
+        catch (HttpRequestException)
+        {
+            return (false, "Không kết nối được máy chủ.", null);
+        }
+        catch (TaskCanceledException)
+        {
+            return (false, "Yêu cầu bị timeout.", null);
+        }
+        catch (JsonException)
+        {
+            return (false, "Phản hồi máy chủ không đúng định dạng.", null);
+        }
+        catch (Exception)
+        {
+            return (false, "Đăng nhập thất bại.", null);
+        }
     }
 
     public async Task<(bool Ok, string? Error)> RegisterAsync(RegisterDto dto)

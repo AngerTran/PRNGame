@@ -19,13 +19,34 @@ namespace Rock_Paper_Scissors_Online.Repository{
         public Task<int> GetHistorySumMaxRoundsAsync() =>
             _context.Histories.Select(h => h.MaxRounds).DefaultIfEmpty().SumAsync();
 
-        public Task<int> GetUserCountCreatedOnUtcDateAsync(DateTime utcDate) =>
-            _context.Users.CountAsync(u => u.CreatedAt.Date == utcDate.Date);
+        public Task<int> GetUserCountCreatedOnUtcDateAsync(DateTime utcDate)
+        {
+            var dayStart = NormalizeDateForTimestampWithoutTimeZone(utcDate);
+            var dayEnd = dayStart.AddDays(1);
+            return _context.Users.CountAsync(u => u.CreatedAt >= dayStart && u.CreatedAt < dayEnd);
+        }
 
-        public Task<int> GetUserCountLastPlayedOnUtcDateAsync(DateTime utcDate) =>
-            _context.Users.CountAsync(u => u.LastPlayedAt.HasValue && u.LastPlayedAt.Value.Date == utcDate.Date);
+        public Task<int> GetUserCountLastPlayedOnUtcDateAsync(DateTime utcDate)
+        {
+            var dayStart = NormalizeDateForTimestampWithoutTimeZone(utcDate);
+            var dayEnd = dayStart.AddDays(1);
+            return _context.Users.CountAsync(u =>
+                u.LastPlayedAt.HasValue &&
+                u.LastPlayedAt.Value >= dayStart &&
+                u.LastPlayedAt.Value < dayEnd);
+        }
 
-        public Task<int> GetHistoryCountFinishedOnUtcDateAsync(DateTime utcDate) =>
-            _context.Histories.CountAsync(h => h.Status == "Finished" && h.FinishedAt.Date == utcDate.Date);
+        public Task<int> GetHistoryCountFinishedOnUtcDateAsync(DateTime utcDate)
+        {
+            var dayStart = NormalizeDateForTimestampWithoutTimeZone(utcDate);
+            var dayEnd = dayStart.AddDays(1);
+            return _context.Histories.CountAsync(h =>
+                h.Status == "Finished" &&
+                h.FinishedAt >= dayStart &&
+                h.FinishedAt < dayEnd);
+        }
+
+        private static DateTime NormalizeDateForTimestampWithoutTimeZone(DateTime date) =>
+            DateTime.SpecifyKind(date.Date, DateTimeKind.Unspecified);
     }
 }
