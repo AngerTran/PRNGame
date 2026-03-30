@@ -25,6 +25,10 @@ else
                 <div>
                     <p class="rps-lobby-kicker mb-1">Phòng đấu</p>
                     <h1 class="rps-play-title">@(_room?.Name ?? "Phòng")</h1>
+                    @if (_showRoundInfo)
+                    {
+                        <p class="rps-play-current-round mb-0">Round hiện tại: <strong>@CurrentRoundDisplay</strong></p>
+                    }
                 </div>
                 <a class="rps-play-leave" href="/lobby"><i class="bi bi-box-arrow-left" aria-hidden="true"></i> Rời / Sảnh</a>
             </header>
@@ -48,7 +52,7 @@ else
             }
 
             <div class="row g-3">
-                <div class="col-lg-6">
+                <div class="col-lg-4">
                     <section class="rps-play-panel">
                         <div class="rps-play-panel-h">Trạng thái</div>
                         <div class="rps-play-panel-b">
@@ -75,6 +79,13 @@ else
                                         <dt>Hiệp đã chơi / tối đa</dt>
                                         <dd>@_room.CurrentRound / @_room.BestOfRounds</dd>
                                     </div>
+                                    @if (DisplayCountdownSeconds is int pickRemain && pickRemain > 0)
+                                    {
+                                        <div class="rps-play-stat">
+                                            <dt>@DisplayCountdownLabel</dt>
+                                            <dd class="rps-play-pick-remaining">@pickRemain giây</dd>
+                                        </div>
+                                    }
                                     <div class="rps-play-stat">
                                         <dt>Thưởng nếu thắng trận</dt>
                                         <dd>@_room.PointsPerWin xu (một lần khi kết thúc)</dd>
@@ -122,7 +133,7 @@ else
                         </div>
                     </section>
                 </div>
-                <div class="col-lg-6">
+                <div class="col-lg-4">
                     <section class="rps-play-panel">
                         <div class="rps-play-panel-h">Hành động</div>
                         <div class="rps-play-panel-b">
@@ -146,6 +157,34 @@ else
                                     </button>
                                 }
                             </div>
+                            @if (DisplayCountdownSeconds is int pickActionLeft && pickActionLeft > 0)
+                            {
+                                <div class="rps-play-turn-timer" role="status">
+                                    <span class="rps-play-turn-timer-label">@DisplayCountdownLabel</span>
+                                    <strong class="rps-play-turn-timer-seconds">@pickActionLeft</strong>
+                                    <span class="rps-play-turn-timer-unit">giây</span>
+                                </div>
+                            }
+                        </div>
+                    </section>
+                </div>
+                <div class="col-lg-4">
+                    <section class="rps-play-panel">
+                        <div class="rps-play-panel-h">Kết quả từng ván</div>
+                        <div class="rps-play-panel-b">
+                            @if (_roundHistory.Count == 0)
+                            {
+                                <p class="text-muted small mb-0">Chưa có kết quả ván nào.</p>
+                            }
+                            else
+                            {
+                                <ol class="rps-play-round-list">
+                                    @foreach (var line in _roundHistory)
+                                    {
+                                        <li>@line</li>
+                                    }
+                                </ol>
+                            }
                         </div>
                     </section>
                 </div>
@@ -153,33 +192,24 @@ else
 
             <section class="rps-play-moves">
                 <div class="rps-play-moves-h">Nước đi · búa · bao · kéo</div>
-                @if (_pickSecondsLeft is int pickLeft && pickLeft > 0 && string.Equals(_phase, "round_active", StringComparison.OrdinalIgnoreCase))
-                {
-                    <div class="rps-play-pick-timer" role="status">Còn <strong>@pickLeft</strong> giây để chọn nước đi</div>
-                }
                 <div class="rps-play-moves-b">
-                    <button class="btn rps-play-move rps-play-move--icon" type="button" disabled="@_hubBusy"
+                    <button class="@MoveButtonClass("rock")" type="button" disabled="@_hubBusy"
                         aria-label="Chọn búa đá (rock)" @onclick='() => MoveAsync("rock")'>
                         <img class="rps-play-move-img" src="rps-moves/rock.svg" width="80" height="80" decoding="async" alt="" />
                         <span class="rps-play-move-label">Búa đá</span>
                     </button>
-                    <button class="btn rps-play-move rps-play-move--icon" type="button" disabled="@_hubBusy"
+                    <button class="@MoveButtonClass("paper")" type="button" disabled="@_hubBusy"
                         aria-label="Chọn bao (paper)" @onclick='() => MoveAsync("paper")'>
                         <img class="rps-play-move-img" src="rps-moves/paper.svg" width="80" height="80" decoding="async" alt="" />
                         <span class="rps-play-move-label">Bao</span>
                     </button>
-                    <button class="btn rps-play-move rps-play-move--icon" type="button" disabled="@_hubBusy"
+                    <button class="@MoveButtonClass("scissors")" type="button" disabled="@_hubBusy"
                         aria-label="Chọn kéo (scissors)" @onclick='() => MoveAsync("scissors")'>
                         <img class="rps-play-move-img" src="rps-moves/scissors.svg" width="80" height="80" decoding="async" alt="" />
                         <span class="rps-play-move-label">Kéo</span>
                     </button>
                 </div>
             </section>
-
-            @if (!string.IsNullOrEmpty(_lastRound))
-            {
-                <div class="rps-play-round"><strong>Ván gần nhất:</strong> @_lastRound</div>
-            }
 
             <RpsDualChatPanel RoomGameHub="_hub" GameRoomId="@RoomId" />
 
@@ -256,8 +286,10 @@ else
     private string? _hubError;
     private string? _toast;
     private string? _lastRound;
+    private readonly List<string> _roundHistory = new();
     private bool _winnerPanelVisible;
     private string _gameWinnerDisplay = "";
+    private bool _showRoundInfo;
 
     private bool _revealVisible;
     private string? _revealP1Move;
@@ -267,13 +299,38 @@ else
     private DateTime _revealEndsAtUtc;
     private CancellationTokenSource? _revealTickerCts;
     private bool _revealMovesVisible;
-    private int? _pickSecondsLeft;
+    private int? _phaseSecondsLeft;
+    private string? _selectedMove;
 
     private int RevealSecondsLeft =>
         !_revealVisible ? 0 : Math.Max(0, (int)Math.Ceiling((_revealEndsAtUtc - DateTime.UtcNow).TotalSeconds));
 
+    private int? DisplayCountdownSeconds => IsCountdownPhase(_phase) ? _phaseSecondsLeft : null;
+
+    private string DisplayCountdownLabel => _phase.ToLowerInvariant() switch
+    {
+        "betting_phase" => "Chuẩn bị ván mới",
+        "battle_start" => "Bắt đầu ra tay",
+        "round_active" => "Chọn nước đi",
+        _ => "Đếm ngược"
+    };
+
     private int ScoreP1 => _room?.PlayerScores?.GetValueOrDefault(_room.Player1?.UserId ?? "", 0) ?? 0;
     private int ScoreP2 => _room?.PlayerScores?.GetValueOrDefault(_room.Player2?.UserId ?? "", 0) ?? 0;
+    private string CurrentRoundDisplay
+    {
+        get
+        {
+            var max = _room?.BestOfRounds ?? 0;
+            var cur = _room?.CurrentRound ?? 0;
+            if (max <= 0)
+                return "1/1";
+            var shown = cur <= 0 ? 1 : cur;
+            if (shown > max)
+                shown = max;
+            return $"{shown}/{max}";
+        }
+    }
 
     private bool AmIReady
     {
@@ -340,9 +397,16 @@ else
                     if (TryPhase(payload, out var ph))
                     {
                         _phase = ph;
+                        if (IsRoundInfoPhase(ph))
+                            _showRoundInfo = true;
+                        if (IsCountdownPhase(ph) && !_phaseSecondsLeft.HasValue)
+                            _phaseSecondsLeft = DefaultSecondsForPhase(ph);
                         if (string.Equals(ph, "reveal_countdown", StringComparison.OrdinalIgnoreCase)
                             || string.Equals(ph, "round_result", StringComparison.OrdinalIgnoreCase))
-                            _pickSecondsLeft = null;
+                        {
+                            _phaseSecondsLeft = null;
+                            _selectedMove = null;
+                        }
                     }
                     StateHasChanged();
                 });
@@ -356,8 +420,8 @@ else
                     return Task.CompletedTask;
                 return InvokeAsync(() =>
                 {
-                    if (string.Equals(ttype, "round_active", StringComparison.OrdinalIgnoreCase))
-                        _pickSecondsLeft = sec;
+                    if (IsCountdownPhase(ttype))
+                        _phaseSecondsLeft = sec;
                     StateHasChanged();
                 });
             });
@@ -370,8 +434,8 @@ else
                     return Task.CompletedTask;
                 return InvokeAsync(() =>
                 {
-                    if (string.Equals(ttype, "round_active", StringComparison.OrdinalIgnoreCase))
-                        _pickSecondsLeft = sec;
+                    if (IsCountdownPhase(ttype))
+                        _phaseSecondsLeft = sec;
                     StateHasChanged();
                 });
             });
@@ -384,8 +448,11 @@ else
                     return Task.CompletedTask;
                 return InvokeAsync(() =>
                 {
-                    if (string.Equals(ttype, "round_active", StringComparison.OrdinalIgnoreCase))
-                        _pickSecondsLeft = null;
+                    if (IsCountdownPhase(ttype))
+                    {
+                        _phaseSecondsLeft = null;
+                        _selectedMove = null;
+                    }
                     StateHasChanged();
                 });
             });
@@ -395,8 +462,12 @@ else
                 return InvokeAsync(async () =>
                 {
                     ClearRevealOverlay();
+                    _selectedMove = null;
                     if (TryRoundSummary(payload, out var line))
+                    {
                         _lastRound = line;
+                        _roundHistory.Add(line);
+                    }
                     StateHasChanged();
                     await RefreshRoomUiCoreAsync();
                 });
@@ -420,7 +491,8 @@ else
                     _revealP2Username = u2;
                     _revealEndsAtUtc = endsUtc;
                     _revealVisible = true;
-                    _pickSecondsLeft = null;
+                    _phaseSecondsLeft = null;
+                    _selectedMove = null;
 
                     _ = RunRevealTickerAsync(_revealTickerCts.Token);
                     StateHasChanged();
@@ -449,6 +521,7 @@ else
                 return InvokeAsync(async () =>
                 {
                     ClearRevealOverlay();
+                    _selectedMove = null;
                     StateHasChanged();
                     await RefreshRoomUiCoreAsync();
                 });
@@ -467,7 +540,9 @@ else
                 return InvokeAsync(async () =>
                 {
                     ClearRevealOverlay();
-                    _pickSecondsLeft = null;
+                    _phaseSecondsLeft = null;
+                    _selectedMove = null;
+                    _showRoundInfo = false;
                     if (TryGameEndedWinner(payload, out var winnerName) && !string.IsNullOrWhiteSpace(winnerName))
                     {
                         _gameWinnerDisplay = winnerName.Trim();
@@ -614,6 +689,37 @@ else
         _revealTickerCts = null;
     }
 
+    private static bool IsCountdownPhase(string? phaseOrTimerType) =>
+        phaseOrTimerType != null
+        && (phaseOrTimerType.Equals("betting_phase", StringComparison.OrdinalIgnoreCase)
+            || phaseOrTimerType.Equals("battle_start", StringComparison.OrdinalIgnoreCase)
+            || phaseOrTimerType.Equals("round_active", StringComparison.OrdinalIgnoreCase));
+
+    private static int DefaultSecondsForPhase(string? phaseOrTimerType) => phaseOrTimerType?.ToLowerInvariant() switch
+    {
+        "betting_phase" => 10,
+        "battle_start" => 5,
+        "round_active" => 10,
+        _ => 0
+    };
+
+    private static bool IsRoundInfoPhase(string? phase) =>
+        phase != null
+        && (phase.Equals("betting_phase", StringComparison.OrdinalIgnoreCase)
+            || phase.Equals("battle_start", StringComparison.OrdinalIgnoreCase)
+            || phase.Equals("round_active", StringComparison.OrdinalIgnoreCase)
+            || phase.Equals("reveal_countdown", StringComparison.OrdinalIgnoreCase)
+            || phase.Equals("round_result", StringComparison.OrdinalIgnoreCase)
+            || phase.Equals("result_phase", StringComparison.OrdinalIgnoreCase));
+
+    private string MoveButtonClass(string move)
+    {
+        var selected = string.Equals(_selectedMove, move, StringComparison.OrdinalIgnoreCase);
+        return selected
+            ? "btn rps-play-move rps-play-move--icon rps-play-move--selected"
+            : "btn rps-play-move rps-play-move--icon";
+    }
+
     private async Task RunRevealTickerAsync(CancellationToken ct)
     {
         try
@@ -686,6 +792,11 @@ else
         try
         {
             await _hub.InvokeAsync("StartGame", RoomId);
+            _phaseSecondsLeft = 10;
+            _selectedMove = null;
+            _roundHistory.Clear();
+            _lastRound = null;
+            _showRoundInfo = true;
             await RefreshRoomUiAsync();
         }
         finally
@@ -699,6 +810,7 @@ else
         if (_hub == null)
             return;
         _hubBusy = true;
+        _selectedMove = move;
         try
         {
             await _hub.InvokeAsync("SubmitMove", RoomId, move);

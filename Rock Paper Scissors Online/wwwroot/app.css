@@ -2430,6 +2430,17 @@ body.rps-razor .rps-razor-feature-card .card-body {
     color: transparent;
 }
 
+.rps-play-current-round {
+    margin-top: 0.35rem;
+    font-size: 0.84rem;
+    color: #cbd5e1;
+}
+
+.rps-play-current-round strong {
+    color: #99f6e4;
+    font-variant-numeric: tabular-nums;
+}
+
 .rps-play-leave {
     display: inline-flex;
     align-items: center;
@@ -2509,6 +2520,11 @@ body.rps-razor .rps-razor-feature-card .card-body {
     font-weight: 600;
 }
 
+.rps-play-pick-remaining {
+    color: #99f6e4;
+    font-variant-numeric: tabular-nums;
+}
+
 .rps-play-ready-ic {
     color: var(--rps-accent);
     font-weight: 700;
@@ -2518,6 +2534,35 @@ body.rps-razor .rps-razor-feature-card .card-body {
     display: flex;
     flex-wrap: wrap;
     gap: 0.6rem;
+}
+
+.rps-play-turn-timer {
+    margin-top: 0.85rem;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.65rem;
+    border: 1px solid rgba(45, 212, 191, 0.45);
+    background: linear-gradient(135deg, rgba(45, 212, 191, 0.18), rgba(99, 102, 241, 0.15));
+}
+
+.rps-play-turn-timer-label {
+    font-size: 0.75rem;
+    color: #cbd5e1;
+    font-weight: 600;
+}
+
+.rps-play-turn-timer-seconds {
+    color: #99f6e4;
+    font-size: 1.15rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.rps-play-turn-timer-unit {
+    font-size: 0.82rem;
+    color: #e2e8f0;
 }
 
 .rps-play-btn-ready {
@@ -2646,6 +2691,22 @@ body.rps-razor .rps-razor-feature-card .card-body {
     filter: drop-shadow(0 2px 10px rgba(45, 212, 191, 0.25));
 }
 
+.rps-play-move--selected,
+.rps-play-move--selected:hover:not(:disabled) {
+    border-color: rgba(45, 212, 191, 0.7);
+    background: linear-gradient(160deg, rgba(45, 212, 191, 0.2), rgba(167, 139, 250, 0.16));
+    box-shadow: 0 0 0 1px rgba(45, 212, 191, 0.35), 0 10px 22px rgba(45, 212, 191, 0.18);
+    transform: translateY(-1px);
+}
+
+.rps-play-move--selected .rps-play-move-label {
+    color: #ecfeff;
+}
+
+.rps-play-move--selected .rps-play-move-img {
+    filter: drop-shadow(0 4px 14px rgba(45, 212, 191, 0.4));
+}
+
 .rps-play-reveal-overlay {
     position: fixed;
     inset: 0;
@@ -2764,6 +2825,22 @@ body.rps-razor .rps-razor-feature-card .card-body {
     background: rgba(52, 211, 153, 0.08);
     color: #bbf7d0;
     font-size: 0.9rem;
+}
+
+.rps-play-round-list {
+    margin: 0;
+    padding-left: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    max-height: 14rem;
+    overflow-y: auto;
+}
+
+.rps-play-round-list li {
+    color: #bbf7d0;
+    font-size: 0.84rem;
+    line-height: 1.45;
 }
 
 .rps-play-winner-overlay {
