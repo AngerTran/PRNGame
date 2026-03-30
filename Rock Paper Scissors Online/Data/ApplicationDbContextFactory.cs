@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
+using Rock_Paper_Scissors_Online.Configuration;
 using Rock_Paper_Scissors_Online.Models;
 
 namespace Rock_Paper_Scissors_Online.Data;
@@ -31,8 +32,9 @@ public sealed class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Ap
             || provider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase)
             || provider.Equals("Npgsql", StringComparison.OrdinalIgnoreCase))
         {
-            var cs = config.GetConnectionString("PostgresConnection")
-                     ?? throw new InvalidOperationException("Thiếu ConnectionStrings:PostgresConnection.");
+            var cs = PostgresConnectionResolver.Resolve(config)
+                     ?? throw new InvalidOperationException(
+                         "Thiếu PostgreSQL: ConnectionStrings:PostgresConnection hoặc DATABASE_URL / POSTGRES_URL.");
             optionsBuilder.UseNpgsql(cs);
         }
         else

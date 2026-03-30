@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Rock_Paper_Scissors_Online.Client;
+using Rock_Paper_Scissors_Online.Configuration;
 using Rock_Paper_Scissors_Online.Components;
 using Rock_Paper_Scissors_Online.Hubs;
 using Rock_Paper_Scissors_Online.Mapper;
@@ -36,7 +37,10 @@ namespace Rock_Paper_Scissors_Online
 
             var dbProvider = builder.Configuration["Database:Provider"]?.Trim() ?? "SqlServer";
             var jwtKey = builder.Configuration["Jwt:Key"]
-                ?? throw new InvalidOperationException("Jwt:Key is not configured.");
+                ?? throw new InvalidOperationException(
+                    "Jwt:Key chưa cấu hình. Development: thêm vào appsettings.Development.json hoặc User Secrets. "
+                    + "Production: đặt biến môi trường Jwt__Key (≥32 ký tự).");
+            EnsureJwtKeyIsAcceptable(builder.Environment, jwtKey);
             var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "RockPaperScissorsOnline";
             var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "RockPaperScissorsClients";
 
@@ -44,8 +48,12 @@ namespace Rock_Paper_Scissors_Online
                 || dbProvider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase)
                 || dbProvider.Equals("Npgsql", StringComparison.OrdinalIgnoreCase))
             {
-                var pg = builder.Configuration.GetConnectionString("PostgresConnection")
-                    ?? throw new InvalidOperationException("Connection string 'PostgresConnection' not found when Database:Provider is Postgres.");
+                var pg = PostgresConnectionResolver.Resolve(builder.Configuration)
+                    ?? throw new InvalidOperationException(
+                        "Thiếu chuỗi kết nối PostgreSQL. Đặt một trong các giá trị sau (không dùng localhost trên cloud): "
+                        + "ConnectionStrings__PostgresConnection (chuỗi Npgsql hoặc URI postgresql://), "
+                        + "hoặc DATABASE_URL / POSTGRES_URL (Render, Railway). "
+                        + "Tên biến trên dashboard phải đúng (ví dụ ConnectionStrings__PostgresConnection — hai dấu gạch dưới).");
                 builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(pg));
             }
             else if (dbProvider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase)
@@ -175,5 +183,21 @@ namespace Rock_Paper_Scissors_Online
             p != null && (p.Equals("Postgres", StringComparison.OrdinalIgnoreCase)
                 || p.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase)
                 || p.Equals("Npgsql", StringComparison.OrdinalIgnoreCase));
+
+        private static void EnsureJwtKeyIsAcceptable(IHostEnvironment env, string jwtKey)
+        {
+            if (jwtKey.Length < 32)
+                throw new InvalidOperationException("Jwt:Key phải có ít nhất 32 ký tự (ký tự ký hiệu HS256).");
+
+            if (env.IsDevelopment())
+                return;
+
+            if (jwtKey.Contains("RockPaperScissorsDevSecretKey", StringComparison.Ordinal)
+                || jwtKey.Contains("DevSecret", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "Production: không được dùng Jwt:Key dành cho Development. Đặt Jwt__Key ngẫu nhiên, ≥32 ký tự, trong Environment Variables.");
+            }
+        }
     }
 }
