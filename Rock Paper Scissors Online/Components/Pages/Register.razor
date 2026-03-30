@@ -72,6 +72,18 @@
             await Task.Delay(600);
             Nav.NavigateTo("/login", forceLoad: false);
         }
+        catch (HttpRequestException)
+        {
+            _error = "Không kết nối được máy chủ. Vui lòng thử lại sau ít giây.";
+        }
+        catch (TaskCanceledException)
+        {
+            _error = "Yêu cầu bị timeout. Vui lòng thử lại.";
+        }
+        catch (Exception)
+        {
+            _error = "Có lỗi không mong muốn khi đăng ký. Vui lòng thử lại.";
+        }
         finally
         {
             _busy = false;
