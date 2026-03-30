@@ -1,5 +1,6 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -41,10 +42,20 @@ namespace Rock_Paper_Scissors_Online
 
             builder.Services.Configure<ForwardedHeadersOptions>(options =>
             {
-                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+                // Render / reverse proxy: cần đủ header để Request.Scheme, Host, WebSocket upgrade đúng (HTTPS phía client).
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
+                    | ForwardedHeaders.XForwardedProto
+                    | ForwardedHeaders.XForwardedHost;
                 options.KnownNetworks.Clear();
                 options.KnownProxies.Clear();
             });
+
+            // Docker / deploy: khóa Data Protection ổn định (ProtectedLocalStorage, antiforgery) trong vòng đời container.
+            var dataProtectionKeys = Path.Combine(builder.Environment.ContentRootPath, "DataProtection-Keys");
+            Directory.CreateDirectory(dataProtectionKeys);
+            builder.Services.AddDataProtection()
+                .SetApplicationName("RockPaperScissorsOnline")
+                .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeys));
 
             var dbProvider = builder.Configuration["Database:Provider"]?.Trim() ?? "SqlServer";
             var jwtKey = JwtKeyResolver.Resolve(builder.Configuration)
@@ -158,6 +169,7 @@ namespace Rock_Paper_Scissors_Online
             var app = builder.Build();
 
             app.UseForwardedHeaders();
+            app.UseWebSockets();
 
             // Áp migration Postgres khi deploy (Render + PostgreSQL). SQL Server: tự quản schema/migration.
             if (IsPostgresProvider(dbProvider))

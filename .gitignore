@@ -29,6 +29,9 @@ packages/
 appsettings.*.local.json
 secrets.json
 
+## Data Protection keys (tạo lúc chạy trên server/container)
+**/DataProtection-Keys/
+
 ## OS
 Thumbs.db
 Desktop.ini

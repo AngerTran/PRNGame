@@ -13,13 +13,38 @@ public class AuthTokenStore(ProtectedLocalStorage storage)
             var result = await storage.GetAsync<PortalAuthState>(Key);
             return result.Success ? result.Value : null;
         }
-        catch (InvalidOperationException)
+        catch (Exception)
         {
+            // Prerender / JS chưa sẵn sàng / trình duyệt chặn storage — không làm sập circuit.
             return null;
         }
     }
 
-    public async Task SaveAsync(PortalAuthState state) => await storage.SetAsync(Key, state);
+    public async Task SaveAsync(PortalAuthState state)
+    {
+        try
+        {
+            await storage.SetAsync(Key, state);
+        }
+        catch (InvalidOperationException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Không lưu được phiên đăng nhập.", ex);
+        }
+    }
 
-    public async Task ClearAsync() => await storage.DeleteAsync(Key);
+    public async Task ClearAsync()
+    {
+        try
+        {
+            await storage.DeleteAsync(Key);
+        }
+        catch (Exception)
+        {
+            /* bỏ qua */
+        }
+    }
 }

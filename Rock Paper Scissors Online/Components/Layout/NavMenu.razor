@@ -79,6 +79,7 @@
 @code {
     private bool _loggedIn;
     private PortalAuthState? _session;
+    private bool _authHydrated;
 
     private bool IsLoginRegisterPage
     {
@@ -91,19 +92,38 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender)
+        if (firstRender)
+            Nav.LocationChanged += OnLocationChanged;
+
+        if (!RendererInfo.IsInteractive || _authHydrated)
             return;
 
-        Nav.LocationChanged += OnLocationChanged;
-        await RefreshAuthAsync();
-        StateHasChanged();
+        _authHydrated = true;
+        try
+        {
+            await RefreshAuthAsync();
+            StateHasChanged();
+        }
+        catch (Exception)
+        {
+            _session = null;
+            _loggedIn = false;
+        }
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e) =>
         _ = InvokeAsync(async () =>
         {
-            await RefreshAuthAsync();
-            StateHasChanged();
+            try
+            {
+                await RefreshAuthAsync();
+                StateHasChanged();
+            }
+            catch (Exception)
+            {
+                _session = null;
+                _loggedIn = false;
+            }
         });
 
     private async Task RefreshAuthAsync()

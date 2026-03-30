@@ -1,4 +1,5 @@
 @page "/login"
+@layout AuthLayout
 @rendermode InteractiveServer
 @inject GameApiService Api
 @inject NavigationManager Nav
@@ -28,14 +29,14 @@
             </div>
             @if (!string.IsNullOrEmpty(_error))
             {
-                <div class="alert alert-danger">@_error</div>
+                <div class="alert alert-danger" role="alert">@_error</div>
             }
             <button class="btn btn-primary" type="submit" disabled="@_busy">@(_busy ? "Đang xử lý…" : "Đăng nhập")</button>
         </EditForm>
         <p class="mt-4 mb-0 small rps-auth-footer-links">
             <a href="/register">Chưa có tài khoản? Đăng ký</a>
             <span class="rps-auth-footer-sep" aria-hidden="true">·</span>
-            <a href="/">Home</a>
+            <a href="/lobby">Sảnh</a>
         </p>
     </div>
 </div>
