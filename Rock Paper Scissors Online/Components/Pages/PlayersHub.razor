@@ -26,7 +26,7 @@
     }
 
     <div class="players-status-row mb-3">
-        <span class="players-chip"><i class="bi bi-wifi"></i> Online: @(_legacyOnline?.TotalOnline ?? 0)</span>
+        <span class="players-chip"><i class="bi bi-wifi"></i> Online: @_onlineDisplayRows.Count</span>
         <span class="players-chip"><i class="bi bi-door-open"></i> Phòng: @(_legacyOnline?.TotalRoom ?? 0)</span>
         <span class="players-chip"><i class="bi bi-chat-dots"></i> Lời mời chờ: @_invitations.Count</span>
     </div>
