@@ -5,6 +5,7 @@ using System.Security.Claims;
 using Rock_Paper_Scissors_Online.Enums;
 using Rock_Paper_Scissors_Online.Hubs;
 using Rock_Paper_Scissors_Online.Services.Interfaces;
+using Rock_Paper_Scissors_Online.Utilities;
 
 namespace Rock_Paper_Scissors_Online.Controllers
 {
@@ -407,12 +408,14 @@ namespace Rock_Paper_Scissors_Online.Controllers
                 var (winnerId, reason) = DetermineRoundWinner(player1Move, player2Move, GameRoom.Player1!.UserId, GameRoom.Player2!.UserId);
 
                 // Update scores
-                if (winnerId != null)
+                if (!string.IsNullOrEmpty(winnerId))
                 {
                     if (!GameRoom.PlayerScores.ContainsKey(winnerId))
                         GameRoom.PlayerScores[winnerId] = 0;
                     GameRoom.PlayerScores[winnerId]++;
                 }
+
+                GameRoom.CurrentRound++;
 
                 // Broadcast round completed
                 var roundData = new
@@ -429,7 +432,7 @@ namespace Rock_Paper_Scissors_Online.Controllers
                         winnerName = winnerId == GameRoom.Player1?.UserId ? GameRoom.Player1!.Username :
                                    winnerId == GameRoom.Player2?.UserId ? GameRoom.Player2!.Username : null,
                         scores = GameRoom.PlayerScores,
-                        isDraw = winnerId == null
+                        isDraw = string.IsNullOrEmpty(winnerId)
                     }
                 };
 
@@ -441,31 +444,18 @@ namespace Rock_Paper_Scissors_Online.Controllers
                 var player1Score = GameRoom.PlayerScores.GetValueOrDefault(GameRoom.Player1!.UserId, 0);
                 var player2Score = GameRoom.PlayerScores.GetValueOrDefault(GameRoom.Player2!.UserId, 0);
 
-                if (player1Score >= (maxRounds + 1) / 2 || player2Score >= (maxRounds + 1) / 2)
+                var lastW = string.IsNullOrEmpty(winnerId) ? "tie" : winnerId;
+                var gameOver = RpsMatchRules.IsMatchOver(maxRounds, GameRoom.CurrentRound, player1Score, player2Score);
+
+                if (gameOver)
                 {
-                    // Game is over - determine winner
-                    string gameWinnerId;
-                    if (player1Score > player2Score)
-                    {
-                        gameWinnerId = GameRoom.Player1.UserId;
-                    }
-                    else if (player2Score > player1Score)
-                    {
-                        gameWinnerId = GameRoom.Player2.UserId;
-                    }
-                    else
-                    {
-                        // This should never happen in best-of games, but handle it gracefully
-                        Console.WriteLine($"[GAME API] WARNING: Equal scores ({player1Score}-{player2Score}) when game should end. This should not happen in best-of games!");
-                        gameWinnerId = GameRoom.Player1.UserId; // Default to player 1
-                    }
+                    var gameWinnerId = RpsMatchRules.ResolveWinnerUserId(
+                        GameRoom.Player1.UserId, GameRoom.Player2.UserId, player1Score, player2Score, lastW);
 
                     await EndGame(roomId, new EndGameRequest { WinnerId = gameWinnerId });
                 }
                 else
                 {
-                    // Continue to next round
-                    GameRoom.CurrentRound++;
                     GameRoom.Player1.CurrentChoice = null;
                     GameRoom.Player2.CurrentChoice = null;
 
@@ -556,7 +546,7 @@ namespace Rock_Paper_Scissors_Online.Controllers
                 var (winnerId, reason) = DetermineRoundWinner(player1Move, player2Move, GameRoom.Player1.UserId, GameRoom.Player2.UserId);
 
                 // Update scores
-                if (winnerId != null && winnerId != "tie")
+                if (!string.IsNullOrEmpty(winnerId) && winnerId != "tie")
                 {
                     if (!GameRoom.PlayerScores.ContainsKey(winnerId))
                         GameRoom.PlayerScores[winnerId] = 0;
@@ -570,7 +560,7 @@ namespace Rock_Paper_Scissors_Online.Controllers
                 var player1Score = GameRoom.PlayerScores.GetValueOrDefault(GameRoom.Player1.UserId, 0);
                 var player2Score = GameRoom.PlayerScores.GetValueOrDefault(GameRoom.Player2.UserId, 0);
 
-                var gameOver = player1Score > maxRounds / 2 || player2Score > maxRounds / 2 || GameRoom.CurrentRound > maxRounds;
+                var gameOver = RpsMatchRules.IsMatchOver(maxRounds, GameRoom.CurrentRound, player1Score, player2Score);
 
                 // Prepare round result data
                 var roundResult = new

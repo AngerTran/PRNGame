@@ -13,6 +13,7 @@ using Rock_Paper_Scissors_Online.Services;
 using Rock_Paper_Scissors_Online.Services.Interfaces;
 using Rock_Paper_Scissors_Online.Repository.Interfaces;
 using Rock_Paper_Scissors_Online.Ultilities;
+using Rock_Paper_Scissors_Online.Utilities;
 
 namespace Rock_Paper_Scissors_Online.Hubs
 {
@@ -1515,10 +1516,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                 var player1Score = GameRoom.PlayerScores.GetValueOrDefault(GameRoom!.Player1!.UserId, 0);
                 var player2Score = GameRoom.PlayerScores.GetValueOrDefault(GameRoom!.Player2!.UserId, 0);
 
-                // Game is over when someone wins the majority of rounds
-                // For best-of-3: need 2 wins, for best-of-5: need 3 wins, etc.
-                var requiredWins = (maxRounds + 1) / 2; // This gives us 2 for best-of-3, 3 for best-of-5, etc.
-                var gameOver = player1Score >= requiredWins || player2Score >= requiredWins;
+                // Best-of + trần số hiệp: ván hòa vẫn tính 1 hiệp — không kéo dài quá BestOfRounds.
+                var gameOver = RpsMatchRules.IsMatchOver(maxRounds, GameRoom.CurrentRound, player1Score, player2Score);
 
                 // Prepare round result data
                 var roundData = new
@@ -1557,7 +1556,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
 
                 if (gameOver)
                 {
-                    var winnerId = player1Score > player2Score ? GameRoom.Player1!.UserId : GameRoom.Player2!.UserId;
+                    var winnerId = RpsMatchRules.ResolveWinnerUserId(
+                        GameRoom.Player1!.UserId, GameRoom.Player2!.UserId, player1Score, player2Score, winner);
                     await EndGame(roomId, winnerId);
                 }
                 else
@@ -2030,10 +2030,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
                 var player1Score = GameRoom.PlayerScores.GetValueOrDefault(GameRoom.Player1!.UserId, 0);
                 var player2Score = GameRoom.PlayerScores.GetValueOrDefault(GameRoom.Player2!.UserId, 0);
 
-                // Game is over when someone wins the majority of rounds
-                // For best-of-3: need 2 wins, for best-of-5: need 3 wins, etc.
-                var requiredWins = (maxRounds + 1) / 2; // This gives us 2 for best-of-3, 3 for best-of-5, etc.
-                var gameOver = player1Score >= requiredWins || player2Score >= requiredWins;
+                var gameOver = RpsMatchRules.IsMatchOver(maxRounds, GameRoom.CurrentRound, player1Score, player2Score);
 
                 // Prepare round result data
                 var roundData = new
@@ -2072,9 +2069,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
 
                     if (gameOver)
                     {
-                        // In best-of games, there should never be a tie game
-                        // The game continues until someone wins the majority
-                        var winnerId = player1Score > player2Score ? GameRoom.Player1!.UserId : GameRoom.Player2!.UserId;
+                        var winnerId = RpsMatchRules.ResolveWinnerUserId(
+                            GameRoom.Player1!.UserId, GameRoom.Player2!.UserId, player1Score, player2Score, winner);
 
                         // Trigger final round animation sequence before ending game
                         _ = Task.Run(async () => {
