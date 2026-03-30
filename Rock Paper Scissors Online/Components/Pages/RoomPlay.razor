@@ -72,6 +72,14 @@ else
                                         <dd>P1 @ScoreP1 — P2 @ScoreP2</dd>
                                     </div>
                                     <div class="rps-play-stat">
+                                        <dt>Hiệp đã chơi / tối đa</dt>
+                                        <dd>@_room.CurrentRound / @_room.BestOfRounds</dd>
+                                    </div>
+                                    <div class="rps-play-stat">
+                                        <dt>Thưởng nếu thắng trận</dt>
+                                        <dd>@_room.PointsPerWin xu (một lần khi kết thúc)</dd>
+                                    </div>
+                                    <div class="rps-play-stat">
                                         <dt>Người chơi 1</dt>
                                         <dd>
                                             @if (_room.Player1 == null)
@@ -318,20 +326,26 @@ else
 
             _hub.On<string>("Error", msg =>
             {
-                _hubError = msg;
-                return InvokeAsync(StateHasChanged);
+                return InvokeAsync(() =>
+                {
+                    _hubError = msg;
+                    StateHasChanged();
+                });
             });
 
             _hub.On<JsonElement>("PhaseChanged", payload =>
             {
-                if (TryPhase(payload, out var ph))
+                return InvokeAsync(() =>
                 {
-                    _phase = ph;
-                    if (string.Equals(ph, "reveal_countdown", StringComparison.OrdinalIgnoreCase)
-                        || string.Equals(ph, "round_result", StringComparison.OrdinalIgnoreCase))
-                        _pickSecondsLeft = null;
-                }
-                return InvokeAsync(StateHasChanged);
+                    if (TryPhase(payload, out var ph))
+                    {
+                        _phase = ph;
+                        if (string.Equals(ph, "reveal_countdown", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(ph, "round_result", StringComparison.OrdinalIgnoreCase))
+                            _pickSecondsLeft = null;
+                    }
+                    StateHasChanged();
+                });
             });
 
             _hub.On<JsonElement>("TimerStarted", payload =>
@@ -340,9 +354,12 @@ else
                     return Task.CompletedTask;
                 if (!string.Equals(rid, RoomId, StringComparison.OrdinalIgnoreCase))
                     return Task.CompletedTask;
-                if (string.Equals(ttype, "round_active", StringComparison.OrdinalIgnoreCase))
-                    _pickSecondsLeft = sec;
-                return InvokeAsync(StateHasChanged);
+                return InvokeAsync(() =>
+                {
+                    if (string.Equals(ttype, "round_active", StringComparison.OrdinalIgnoreCase))
+                        _pickSecondsLeft = sec;
+                    StateHasChanged();
+                });
             });
 
             _hub.On<JsonElement>("TimerUpdate", payload =>
@@ -351,9 +368,12 @@ else
                     return Task.CompletedTask;
                 if (!string.Equals(rid, RoomId, StringComparison.OrdinalIgnoreCase))
                     return Task.CompletedTask;
-                if (string.Equals(ttype, "round_active", StringComparison.OrdinalIgnoreCase))
-                    _pickSecondsLeft = sec;
-                return InvokeAsync(StateHasChanged);
+                return InvokeAsync(() =>
+                {
+                    if (string.Equals(ttype, "round_active", StringComparison.OrdinalIgnoreCase))
+                        _pickSecondsLeft = sec;
+                    StateHasChanged();
+                });
             });
 
             _hub.On<JsonElement>("TimerCompleted", payload =>
@@ -362,17 +382,24 @@ else
                     return Task.CompletedTask;
                 if (!string.Equals(rid, RoomId, StringComparison.OrdinalIgnoreCase))
                     return Task.CompletedTask;
-                if (string.Equals(ttype, "round_active", StringComparison.OrdinalIgnoreCase))
-                    _pickSecondsLeft = null;
-                return InvokeAsync(StateHasChanged);
+                return InvokeAsync(() =>
+                {
+                    if (string.Equals(ttype, "round_active", StringComparison.OrdinalIgnoreCase))
+                        _pickSecondsLeft = null;
+                    StateHasChanged();
+                });
             });
 
             _hub.On<JsonElement>("RoundCompleted", payload =>
             {
-                ClearRevealOverlay();
-                if (TryRoundSummary(payload, out var line))
-                    _lastRound = line;
-                return RefreshRoomUiAsync();
+                return InvokeAsync(async () =>
+                {
+                    ClearRevealOverlay();
+                    if (TryRoundSummary(payload, out var line))
+                        _lastRound = line;
+                    StateHasChanged();
+                    await RefreshRoomUiCoreAsync();
+                });
             });
 
             _hub.On<JsonElement>("MovesLocked", payload =>
@@ -380,21 +407,24 @@ else
                 if (!TryMovesLocked(payload, out var u1, out var u2, out var endsUtc))
                     return Task.CompletedTask;
 
-                _revealTickerCts?.Cancel();
-                _revealTickerCts?.Dispose();
-                _revealTickerCts = new CancellationTokenSource();
+                return InvokeAsync(() =>
+                {
+                    _revealTickerCts?.Cancel();
+                    _revealTickerCts?.Dispose();
+                    _revealTickerCts = new CancellationTokenSource();
 
-                _revealMovesVisible = false;
-                _revealP1Move = null;
-                _revealP2Move = null;
-                _revealP1Username = u1;
-                _revealP2Username = u2;
-                _revealEndsAtUtc = endsUtc;
-                _revealVisible = true;
-                _pickSecondsLeft = null;
+                    _revealMovesVisible = false;
+                    _revealP1Move = null;
+                    _revealP2Move = null;
+                    _revealP1Username = u1;
+                    _revealP2Username = u2;
+                    _revealEndsAtUtc = endsUtc;
+                    _revealVisible = true;
+                    _pickSecondsLeft = null;
 
-                _ = RunRevealTickerAsync(_revealTickerCts.Token);
-                return InvokeAsync(StateHasChanged);
+                    _ = RunRevealTickerAsync(_revealTickerCts.Token);
+                    StateHasChanged();
+                });
             });
 
             _hub.On<JsonElement>("MovesRevealed", payload =>
@@ -402,43 +432,57 @@ else
                 if (!TryMovesRevealed(payload, out var p1, out var p2, out var ru1, out var ru2))
                     return Task.CompletedTask;
 
-                _revealP1Move = p1;
-                _revealP2Move = p2;
-                _revealP1Username = ru1;
-                _revealP2Username = ru2;
-                _revealMovesVisible = true;
-                return InvokeAsync(StateHasChanged);
+                return InvokeAsync(() =>
+                {
+                    _revealP1Move = p1;
+                    _revealP2Move = p2;
+                    _revealP1Username = ru1;
+                    _revealP2Username = ru2;
+                    _revealMovesVisible = true;
+                    StateHasChanged();
+                });
             });
 
-            _hub.On<JsonElement>("MoveSubmitted", _ => RefreshRoomUiAsync());
+            _hub.On<JsonElement>("MoveSubmitted", _ => InvokeAsync(async () => await RefreshRoomUiCoreAsync()));
             _hub.On<JsonElement>("NextRound", _ =>
             {
-                ClearRevealOverlay();
-                return RefreshRoomUiAsync();
+                return InvokeAsync(async () =>
+                {
+                    ClearRevealOverlay();
+                    StateHasChanged();
+                    await RefreshRoomUiCoreAsync();
+                });
             });
-            _hub.On<JsonElement>("PlayerReadyChanged", _ => RefreshRoomUiAsync());
+            _hub.On<JsonElement>("PlayerReadyChanged", _ => InvokeAsync(async () => await RefreshRoomUiCoreAsync()));
             _hub.On<JsonElement>("BothPlayersReady", _ =>
             {
-                _toast = "Cả hai đã sẵn sàng — chủ phòng có thể bắt đầu.";
-                return RefreshRoomUiAsync();
+                return InvokeAsync(async () =>
+                {
+                    _toast = "Cả hai đã sẵn sàng — chủ phòng có thể bắt đầu.";
+                    await RefreshRoomUiCoreAsync();
+                });
             });
             _hub.On<JsonElement>("GameEnded", payload =>
             {
-                ClearRevealOverlay();
-                _pickSecondsLeft = null;
-                if (TryGameEndedWinner(payload, out var winnerName) && !string.IsNullOrWhiteSpace(winnerName))
+                return InvokeAsync(async () =>
                 {
-                    _gameWinnerDisplay = winnerName.Trim();
-                    _winnerPanelVisible = true;
-                    _toast = null;
-                }
-                else
-                {
-                    _gameWinnerDisplay = "";
-                    _winnerPanelVisible = false;
-                    _toast = "Trận đấu kết thúc.";
-                }
-                return RefreshRoomUiAsync();
+                    ClearRevealOverlay();
+                    _pickSecondsLeft = null;
+                    if (TryGameEndedWinner(payload, out var winnerName) && !string.IsNullOrWhiteSpace(winnerName))
+                    {
+                        _gameWinnerDisplay = winnerName.Trim();
+                        _winnerPanelVisible = true;
+                        _toast = null;
+                    }
+                    else
+                    {
+                        _gameWinnerDisplay = "";
+                        _winnerPanelVisible = false;
+                        _toast = "Trận đấu kết thúc.";
+                    }
+                    StateHasChanged();
+                    await RefreshRoomUiCoreAsync();
+                });
             });
 
             await _hub.StartAsync();
@@ -455,11 +499,18 @@ else
         StateHasChanged();
     }
 
-    private async Task RefreshRoomUiAsync()
+    private Task RefreshRoomUiAsync() => RefreshRoomUiCoreAsync();
+
+    private async Task RefreshRoomUiCoreAsync()
     {
-        var (ok, room, _) = await Api.GetRoomAsync(RoomId);
-        if (ok && room != null)
-            _room = room;
+        try
+        {
+            var (ok, room, _) = await Api.GetRoomAsync(RoomId);
+            if (ok && room != null)
+                _room = room;
+        }
+        catch { }
+
         await InvokeAsync(StateHasChanged);
     }
 

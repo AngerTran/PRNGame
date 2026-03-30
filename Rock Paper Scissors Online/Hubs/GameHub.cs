@@ -2,6 +2,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
+using System.Collections.Concurrent;
 using System.Security.Claims;
 
 // Thay đổi các using sang namespace mới của bạn
@@ -35,6 +36,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
         private static readonly Dictionary<string, string> _roomTimerTypes = new();
         private static readonly Dictionary<string, bool> _gameCompleted = new();
         private static readonly Dictionary<string, bool> _betsRefunded = new();
+        private static readonly ConcurrentDictionary<string, byte> _matchPayoutApplied = new();
         private static IHubContext<GameHub>? _hubContext;
 
         private const int RoundMoveSelectionSeconds = 10;
@@ -571,7 +573,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
                 await ReturnAllBetsToSpectators(GameRoom.Id);
 
                 // Process point transaction for the winner
-                var pointResult = await ProcessGameResultStatic(winnerId, disconnectedUserId, GameRoom.PointsPerWin, GameRoom.Id, _staticServiceScopeFactory!, _hubContext);
+                var pointResult = await ProcessGameResultStatic(winnerId, disconnectedUserId, GameRoom.PointsPerWin, GameRoom.Id, GameRoom.BestOfRounds, _staticServiceScopeFactory!, _hubContext);
 
                 if (pointResult.Success)
                 {
@@ -743,7 +745,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
                 await ReturnAllBetsToSpectators(GameRoom.Id);
 
                 // Process point transaction for the winner
-                var pointResult = await ProcessGameResultStatic(winnerId, leavingUserId, GameRoom.PointsPerWin, GameRoom.Id, _staticServiceScopeFactory!, _hubContext);
+                var pointResult = await ProcessGameResultStatic(winnerId, leavingUserId, GameRoom.PointsPerWin, GameRoom.Id, GameRoom.BestOfRounds, _staticServiceScopeFactory!, _hubContext);
 
                 if (pointResult.Success)
                 {
@@ -2065,10 +2067,13 @@ namespace Rock_Paper_Scissors_Online.Hubs
                 if (_hubContext != null)
                 {
                     Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Broadcasting round completed event");
+                    await SendPhaseChangedAsync(roomId, "round_result");
                     await _hubContext.Clients.Group(roomId).SendAsync("RoundCompleted", roundData);
 
                     if (gameOver)
                     {
+                        StopRoomTimerStatic(roomId);
+
                         var winnerId = RpsMatchRules.ResolveWinnerUserId(
                             GameRoom.Player1!.UserId, GameRoom.Player2!.UserId, player1Score, player2Score, winner);
 
@@ -2233,7 +2238,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                     return;
                                 }
 
-                                var pointResult = await ProcessGameResultStatic(winnerId, loserId, GameRoom.PointsPerWin, roomId, capturedServiceScopeFactory!, _hubContext);
+                                var pointResult = await ProcessGameResultStatic(winnerId, loserId, GameRoom.PointsPerWin, roomId, GameRoom.BestOfRounds, capturedServiceScopeFactory!, _hubContext);
 
                                 if (!pointResult.Success)
                                 {
@@ -2274,8 +2279,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                     message = "Your profile has been updated"
                                 });
 
-                                // Calculate actual rounds played (current round - 1, since we increment after processing)
-                                var actualRoundsPlayed = GameRoom.CurrentRound - 1;
+                                var actualRoundsPlayed = GameRoom.CurrentRound;
 
                                 // Send result phase data to frontend
                                 await _hubContext.Clients.Group(roomId).SendAsync("ShowResultPhase", new
@@ -2450,17 +2454,36 @@ namespace Rock_Paper_Scissors_Online.Hubs
                             Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Waiting 2 seconds after new round announcement before starting next round");
                             await Task.Delay(2000); // 2 second delay after new round announcement
 
+                            if (_staticRoomService == null)
+                                return;
+                            if (IsGameCompleted(roomId))
+                                return;
+                            var live = await _staticRoomService.GetRoomAsync(roomId);
+                            if (live == null || live.Status != RoomStatus.Playing)
+                                return;
+                            var liveP1 = live.Player1!.UserId;
+                            var liveP2 = live.Player2!.UserId;
+                            var liveS1 = live.PlayerScores.GetValueOrDefault(liveP1, 0);
+                            var liveS2 = live.PlayerScores.GetValueOrDefault(liveP2, 0);
+                            var liveBest = Math.Max(1, live.BestOfRounds);
+                            if (RpsMatchRules.IsMatchOver(liveBest, live.CurrentRound, liveS1, liveS2))
+                            {
+                                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Skip NextRound after animations — match already over for {roomId}");
+                                return;
+                            }
+
                             // Notify next round and start the next round
                             Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Starting next round after 2 second delay");
+                            var nextNum = live.CurrentRound + 1;
                             await _hubContext.Clients.Group(roomId).SendAsync("NextRound", new
                             {
                                 success = true,
-                                message = $"Round {GameRoom.CurrentRound + 1} ready to start!",
+                                message = $"Round {nextNum} ready to start!",
                                 data = new
                                 {
-                                    roundNumber = GameRoom.CurrentRound + 1,
-                                    player1Score = player1Score,
-                                    player2Score = player2Score
+                                    roundNumber = nextNum,
+                                    player1Score = liveS1,
+                                    player2Score = liveS2
                                 }
                             });
 
@@ -2639,6 +2662,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
                     // Clear game completion status since GameRoom is deleted
                     ClearGameCompletionStatus(roomId);
                     ClearBetRefundStatus(roomId);
+                    _matchPayoutApplied.TryRemove(roomId, out _);
 
                     // Notify all users that GameRoom has been deleted (backup notification)
                     await Clients.Group(roomId).SendAsync("RoomDeleted", new
@@ -2723,6 +2747,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
                         // Clear game completion status since GameRoom is deleted
                         ClearGameCompletionStatus(roomId);
                         ClearBetRefundStatus(roomId);
+                        _matchPayoutApplied.TryRemove(roomId, out _);
 
                         // Notify all users that GameRoom has been deleted (backup notification)
                         if (_hubContext != null)
@@ -2856,6 +2881,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
                         // Clear game completion status since GameRoom is deleted
                         ClearGameCompletionStatus(roomId);
                         ClearBetRefundStatus(roomId);
+                        _matchPayoutApplied.TryRemove(roomId, out _);
 
                         // Notify all users that GameRoom has been deleted (backup notification)
                         await Clients.Group(roomId).SendAsync("RoomDeleted", new
@@ -3660,6 +3686,26 @@ namespace Rock_Paper_Scissors_Online.Hubs
             return "waiting_opponent";
         }
 
+        private static void StopRoomTimerStatic(string roomId)
+        {
+            try
+            {
+                if (_roomTimers.ContainsKey(roomId))
+                {
+                    _roomTimers[roomId]?.Dispose();
+                    _roomTimers.Remove(roomId);
+                }
+                if (_roomTimerValues.ContainsKey(roomId))
+                    _roomTimerValues.Remove(roomId);
+                if (_roomTimerTypes.ContainsKey(roomId))
+                    _roomTimerTypes.Remove(roomId);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Error stopping static timer for {roomId}: {ex.Message}");
+            }
+        }
+
         private static void StartRoomTimerStatic(string roomId, int duration, string timerType)
         {
             try
@@ -3922,7 +3968,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
         }
 
         // Static method to process game results with fresh DataContext
-        private static async Task<PointTransactionResult> ProcessGameResultStatic(string winnerId, string loserId, int pointsPerWin, string gameId, IServiceScopeFactory serviceScopeFactory, IHubContext<GameHub>? hubContext = null)
+        private static async Task<PointTransactionResult> ProcessGameResultStatic(string winnerId, string loserId, int pointsPerWin, string gameId, int bestOfRounds, IServiceScopeFactory serviceScopeFactory, IHubContext<GameHub>? hubContext = null)
         {
             try
             {
@@ -3937,6 +3983,22 @@ namespace Rock_Paper_Scissors_Online.Hubs
                     };
                 }
 
+                if (!_matchPayoutApplied.TryAdd(gameId, 0))
+                {
+                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Skip duplicate payout for room {gameId}");
+                    using var dupScope = serviceScopeFactory.CreateScope();
+                    var dupRepo = dupScope.ServiceProvider.GetRequiredService<IUserRepository>();
+                    var w = await dupRepo.GetByIdAsync(Guid.Parse(winnerId));
+                    var l = await dupRepo.GetByIdAsync(Guid.Parse(loserId));
+                    return new PointTransactionResult
+                    {
+                        Success = true,
+                        Message = "Payout already applied for this match",
+                        WinnerPoints = w?.Points ?? 0,
+                        LoserPoints = l?.Points ?? 0
+                    };
+                }
+
                 // Create a new DataContext and UserRepository for this operation
                 using var scope = serviceScopeFactory.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -3948,6 +4010,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
 
                 if (winner == null || loser == null)
                 {
+                    _matchPayoutApplied.TryRemove(gameId, out _);
                     return new PointTransactionResult
                     {
                         Success = false,
@@ -3955,13 +4018,15 @@ namespace Rock_Paper_Scissors_Online.Hubs
                     };
                 }
 
+                var maxRoundsRecorded = Math.Max(1, bestOfRounds);
+
                 // Create game history record
                 var gameHistory = new History
                 {
                     Id = Guid.NewGuid(),
                     Name = $"Game GameRoom {gameId[..8]}", // Short GameRoom ID for display
                     CreatorUserId = Guid.Parse(winnerId), // Use winner as creator for now
-                    MaxRounds = 3, // Default to 3 rounds
+                    MaxRounds = maxRoundsRecorded,
                     Points = pointsPerWin,
                     Status = "Completed",
                     OpponentId = Guid.Parse(loserId), // Use loser as opponent
@@ -4045,17 +4110,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
 
                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Points updated (static) - Winner: {winner.Username} (+{pointsPerWin} = {winner.Points}), Loser: {loser.Username} (-{pointsPerWin} = {loser.Points})");
 
-                // Process betting winnings
-                try
-                {
-                    var bettingService = scope.ServiceProvider.GetRequiredService<IBettingService>();
-                    var bettingResult = await bettingService.ClaimWinnings(gameId, winnerId);
-                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Betting winnings processed - Winner: {winnerId} (+{bettingResult.Winnings}), Total Claimed: {bettingResult.TotalClaimed}");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Error processing betting winnings: {ex.Message}");
-                }
+                // Cược khán giả: ClaimWinnings chỉ gọi trong EndGameStatic để tránh gọi hai lần.
 
                 // Verify points after save by re-querying from database
                 var winnerAfterSave = await userRepository.GetByIdAsync(winner.Id);
@@ -4106,6 +4161,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
             }
             catch (Exception ex)
             {
+                _matchPayoutApplied.TryRemove(gameId, out _);
                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Error processing game result (static): {ex.Message}");
                 return new PointTransactionResult
                 {

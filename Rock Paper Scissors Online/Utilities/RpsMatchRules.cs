@@ -5,13 +5,18 @@ namespace Rock_Paper_Scissors_Online.Utilities;
 /// </summary>
 public static class RpsMatchRules
 {
-    public static int RequiredWins(int bestOfRounds) => (bestOfRounds + 1) / 2;
+    public static int RequiredWins(int bestOfRounds)
+    {
+        var n = Math.Max(1, bestOfRounds);
+        return (n + 1) / 2;
+    }
 
     /// <param name="currentRound">Số hiệp đã hoàn thành (sau khi cộng 1 cho ván vừa xong).</param>
     public static bool IsMatchOver(int bestOfRounds, int currentRound, int p1Score, int p2Score)
     {
-        var req = RequiredWins(bestOfRounds);
-        return p1Score >= req || p2Score >= req || currentRound >= bestOfRounds;
+        var cap = Math.Max(1, bestOfRounds);
+        var req = RequiredWins(cap);
+        return p1Score >= req || p2Score >= req || currentRound >= cap;
     }
 
     /// <param name="lastRoundWinner">player1Id, player2Id, hoặc "tie" (GameHub).</param>
