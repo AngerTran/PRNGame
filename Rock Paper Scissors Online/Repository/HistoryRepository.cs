@@ -43,8 +43,16 @@ namespace Rock_Paper_Scissors_Online.Repository
 
         public async Task<int> CountByStatusAndFinishedUtcDateAsync(string status, DateTime utcDate)
         {
+            var dayStart = NormalizeDateForTimestampWithoutTimeZone(utcDate);
+            var dayEnd = dayStart.AddDays(1);
             return await _context.Histories
-                .CountAsync(h => h.Status == status && h.FinishedAt.Date == utcDate.Date);
+                .CountAsync(h =>
+                    h.Status == status &&
+                    h.FinishedAt >= dayStart &&
+                    h.FinishedAt < dayEnd);
         }
+
+        private static DateTime NormalizeDateForTimestampWithoutTimeZone(DateTime date) =>
+            DateTime.SpecifyKind(date.Date, DateTimeKind.Unspecified);
     }
 }

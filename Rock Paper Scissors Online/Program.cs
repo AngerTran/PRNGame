@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Components.Server;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Rock_Paper_Scissors_Online.Client;
 using Rock_Paper_Scissors_Online.Configuration;
@@ -82,6 +83,12 @@ namespace Rock_Paper_Scissors_Online
             builder.Services.AddRazorPages();
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
+
+            builder.Services.Configure<CircuitOptions>(options =>
+            {
+                options.DetailedErrors = builder.Environment.IsDevelopment()
+                    || builder.Configuration.GetValue<bool>("Blazor:DetailedErrors");
+            });
 
             builder.Services.AddScoped<ProtectedLocalStorage>();
             builder.Services.AddScoped<AuthTokenStore>();
