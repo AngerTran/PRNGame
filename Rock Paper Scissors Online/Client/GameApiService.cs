@@ -531,6 +531,73 @@ public sealed class GameApiService : IDisposable
     public Task<(bool Ok, string Body, string? Error)> PlayersGetInvitationsAsync(string playerId) =>
         CallAsync(HttpMethod.Get, $"api/v1/players/{Uri.EscapeDataString(playerId)}/invitations");
 
+    /// <summary>Lời mời pending của user đăng nhập (GET api/v1/players/me/invitations).</summary>
+    public async Task<(bool Ok, IReadOnlyList<PlayerInvitationDto>? Data, string? Error)> GetMyInvitationsAsync()
+    {
+        using var request = await CreateRequestAsync(HttpMethod.Get, "api/v1/players/me/invitations");
+        using var response = await _http.SendAsync(request);
+        var json = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            return (false, null, TryParseMessage(json));
+
+        var wrapped = JsonSerializer.Deserialize<ApiResponse<List<PlayerInvitationDto>>>(json, JsonOptions);
+        if (wrapped?.Success != true || wrapped.Data == null)
+            return (false, null, string.IsNullOrEmpty(wrapped?.Message) ? "Không đọc được danh sách lời mời" : wrapped.Message);
+
+        return (true, wrapped.Data, null);
+    }
+
+    public async Task<(bool Ok, PlayerInvitationDto? Invitation, string? Message, string? Error)> AcceptInvitationAsync(string inviteId)
+    {
+        using var request = await CreateRequestAsync(HttpMethod.Post,
+            $"api/v1/players/me/invitations/{Uri.EscapeDataString(inviteId)}/accept");
+        using var response = await _http.SendAsync(request);
+        var json = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            return (false, null, null, TryParseMessage(json));
+
+        using var doc = JsonDocument.Parse(json);
+        PlayerInvitationDto? inv = null;
+        if (doc.RootElement.TryGetProperty("data", out var dataEl) && dataEl.ValueKind != JsonValueKind.Null)
+            inv = JsonSerializer.Deserialize<PlayerInvitationDto>(dataEl.GetRawText(), JsonOptions);
+        var msg = doc.RootElement.TryGetProperty("message", out var m) ? m.GetString() : null;
+        return (true, inv, msg, null);
+    }
+
+    public async Task<(bool Ok, string? Message, string? Error)> DeclineInvitationAsync(string inviteId)
+    {
+        using var request = await CreateRequestAsync(HttpMethod.Post,
+            $"api/v1/players/me/invitations/{Uri.EscapeDataString(inviteId)}/decline");
+        using var response = await _http.SendAsync(request);
+        var json = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            return (false, null, TryParseMessage(json));
+
+        using var doc = JsonDocument.Parse(json);
+        var msg = doc.RootElement.TryGetProperty("message", out var m) ? m.GetString() : null;
+        return (true, msg, null);
+    }
+
+    /// <summary>GET /api/v1/players/Online — parse <see cref="OnlinePlayerDetailDto"/>.</summary>
+    public async Task<(bool Ok, OnlinePlayerDetailDto? Data, string? Error)> PlayersLegacyOnlineDetailAsync()
+    {
+        var (ok, body, err) = await PlayersLegacyOnlineAsync();
+        if (!ok)
+            return (false, null, err);
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (!doc.RootElement.TryGetProperty("data", out var dataEl))
+                return (false, null, "Phản hồi thiếu data");
+            var dto = JsonSerializer.Deserialize<OnlinePlayerDetailDto>(dataEl.GetRawText(), JsonOptions);
+            return (true, dto, null);
+        }
+        catch (Exception ex)
+        {
+            return (false, null, ex.Message);
+        }
+    }
+
     public Task<(bool Ok, string Body, string? Error)> RoomMgmtStatsAsync() =>
         CallAsync(HttpMethod.Get, "api/v1/room-management/stats");
 

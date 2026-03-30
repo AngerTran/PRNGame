@@ -5,66 +5,228 @@
 
 <PageTitle>Người chơi</PageTitle>
 
-<div class="rps-community-shell">
-    <header class="rps-community-hero">
+<div class="rps-community-shell players-hub-page">
+    <header class="rps-community-hero players-hero">
         <p class="rps-community-kicker"><i class="bi bi-people" aria-hidden="true"></i> Cộng đồng</p>
-        <h1 class="rps-community-title">Người chơi &amp; tìm kiếm</h1>
+        <h1 class="rps-community-title">Người chơi &amp; lời mời</h1>
+        <p class="players-hero-subtitle">Mời bạn bè thi đấu, theo dõi người chơi online và xử lý lời mời đến.</p>
     </header>
-    <nav class="rps-hub-quicklinks" aria-label="Liên kết nhanh">
+    <nav class="rps-hub-quicklinks mb-3" aria-label="Liên kết nhanh">
         <a class="rps-hub-pill" href="/portal"><i class="bi bi-cpu" aria-hidden="true"></i>Trung tâm</a>
     </nav>
 
-    <ul class="nav nav-tabs mb-3">
-    <li class="nav-item"><button class="nav-link @TabClass(0)" type="button" @onclick='() => _tab = 0'>Online (player-stats)</button></li>
-    <li class="nav-item"><button class="nav-link @TabClass(1)" type="button" @onclick='() => _tab = 1'>Tìm (player-stats)</button></li>
-    <li class="nav-item"><button class="nav-link @TabClass(2)" type="button" @onclick='() => _tab = 2'>Chi tiết GUID</button></li>
-    <li class="nav-item"><button class="nav-link @TabClass(3)" type="button" @onclick='() => _tab = 3'>Legacy /players</button></li>
-    <li class="nav-item"><button class="nav-link @TabClass(4)" type="button" @onclick='() => _tab = 4'>Mời &amp; lời mời</button></li>
-</ul>
+    @if (!string.IsNullOrEmpty(_toastOk))
+    {
+        <div class="alert alert-success py-2 small mb-3" role="status">@_toastOk</div>
+    }
+    @if (!string.IsNullOrEmpty(_toastErr))
+    {
+        <div class="alert alert-danger py-2 small mb-3" role="alert">@_toastErr</div>
+    }
+
+    <div class="players-status-row mb-3">
+        <span class="players-chip"><i class="bi bi-wifi"></i> Online: @(_legacyOnline?.TotalOnline ?? 0)</span>
+        <span class="players-chip"><i class="bi bi-door-open"></i> Phòng: @(_legacyOnline?.TotalRoom ?? 0)</span>
+        <span class="players-chip"><i class="bi bi-chat-dots"></i> Lời mời chờ: @_invitations.Count</span>
+    </div>
+
+    <ul class="nav nav-pills players-tabs mb-3">
+        <li class="nav-item"><button class="nav-link @TabClass(0)" type="button" @onclick='() => OnTabAsync(0)'>Online &amp; lời mời</button></li>
+        <li class="nav-item"><button class="nav-link @TabClass(1)" type="button" @onclick='() => _tab = 1'>Tìm kiếm</button></li>
+        <li class="nav-item"><button class="nav-link @TabClass(2)" type="button" @onclick='() => _tab = 2'>Chi tiết</button></li>
+    </ul>
 
 @if (_tab == 0)
 {
-    <div class="rps-community-toolbar">
-        <button class="btn btn-sm btn-primary" type="button" @onclick="LoadOnlineStatsAsync">GET api/v1/player-stats/Online</button>
+    <div class="players-toolbar d-flex flex-wrap gap-2 align-items-center mb-3">
+        <button class="btn btn-primary" type="button" disabled="@_loadingOnline" @onclick="RefreshOnlineAsync">
+            @if (_loadingOnline) { <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> }
+            Làm mới
+        </button>
+        @if (_session != null)
+        {
+            <button class="btn btn-outline-light" type="button" disabled="@_loadingOnline" @onclick="RefreshInvitationsButtonAsync">Làm mới lời mời</button>
+        }
     </div>
-    <div class="table-responsive small">
-        <table class="table table-sm">
-            <thead><tr><th>User</th><th>Điểm</th><th>Trận</th></tr></thead>
-            <tbody>
-                @foreach (var p in _onlineStats?.Players ?? new List<OnlinePlayerDto>())
+
+    @if (_session == null)
+    {
+        <div class="alert alert-info py-2 mb-3 small">Đăng nhập để xem danh sách chi tiết, gửi lời mời và đồng ý/từ chối lời mời.</div>
+    }
+
+    <div class="card border-0 shadow-sm players-card">
+        <div class="card-header bg-transparent py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <strong><i class="bi bi-people me-1" aria-hidden="true"></i>Người chơi online</strong>
+            @if (_onlineListSource == OnlineListSource.PlayerStats)
+            {
+                <span class="badge text-bg-primary">Chi tiết</span>
+            }
+            else if (_onlineListSource == OnlineListSource.Legacy)
+            {
+                <span class="badge text-bg-secondary">Công khai</span>
+            }
+        </div>
+        @if (_legacyOnline != null)
+        {
+            <div class="px-3 py-2 small text-muted border-bottom players-legacy-stats">
+                Online: @_legacyOnline.TotalOnline · Phòng: @_legacyOnline.TotalRoom · Trong trận: @_legacyOnline.TotalConnectionInGame
+            </div>
+        }
+        @if (_session != null && _onlineListSource == OnlineListSource.Legacy && !string.IsNullOrEmpty(_errOnline))
+        {
+            <div class="alert alert-warning py-2 small mb-0 rounded-0 border-0 border-bottom">Không tải được danh sách chi tiết; đang hiển thị danh sách công khai.</div>
+        }
+        @if (_session != null && _onlineListSource == OnlineListSource.Legacy && string.IsNullOrEmpty(_errOnline) && _onlineStats?.Players?.Count == 0 && _legacyOnline?.Players?.Count > 0)
+        {
+            <div class="alert alert-secondary py-2 small mb-0 rounded-0 border-0 border-bottom">Danh sách chi tiết đang trống; hiển thị thêm danh sách công khai.</div>
+        }
+        <div class="card-body p-0">
+            @if (_onlineDisplayRows.Count > 0)
+            {
+                <div class="table-responsive small">
+                    <table class="table table-hover mb-0 players-table">
+                        <thead class="table-light"><tr><th>Người chơi</th><th>Điểm</th><th>Trận</th><th class="text-end">Hành động</th></tr></thead>
+                        <tbody>
+                        @foreach (var p in _onlineDisplayRows)
+                        {
+                            var self = IsSelf(p.Id);
+                            <tr>
+                                <td>@p.Username</td>
+                                <td>@p.Points</td>
+                                <td>@p.Games</td>
+                                <td class="text-end">
+                                    @if (_session != null)
+                                    {
+                                        <button class="btn btn-sm btn-outline-primary px-3" type="button" disabled="@(self || _busyInviteId != null)" @onclick="() => InviteAsync(p.Id, p.Username)">
+                                            @if (_busyInviteId == p.Id) { <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> }
+                                            else { <span>Mời</span> }
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">Đăng nhập để mời</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(_errOnline) && _session != null && _onlineListSource == OnlineListSource.None)
+            {
+                <p class="text-danger small p-3 mb-0">@_errOnline</p>
+            }
+            else if (!string.IsNullOrEmpty(_errLegacy))
+            {
+                <p class="text-danger small p-3 mb-0">@_errLegacy</p>
+            }
+            else
+            {
+                <p class="text-muted small p-3 mb-0">Chưa có ai online.</p>
+            }
+        </div>
+    </div>
+
+    @if (_session != null)
+    {
+        <div class="card border-0 shadow-sm mt-4 players-card">
+            <div class="card-header bg-transparent py-3 d-flex justify-content-between align-items-center">
+                <strong><i class="bi bi-envelope-open me-1" aria-hidden="true"></i>Lời mời đến</strong>
+                @if (!string.IsNullOrEmpty(_invErr))
                 {
-                    <tr><td>@p.Username</td><td>@p.Points</td><td>@p.GamesPlayed</td></tr>
+                    <span class="text-danger small">@_invErr</span>
                 }
-            </tbody>
-        </table>
-    </div>
-    <JsonApiResult Json="@_rawOnline" Error="@_errOnline" />
+            </div>
+            <div class="card-body">
+                @if (_invitations.Count == 0)
+                {
+                    <p class="text-muted small mb-0">Không có lời mời đang chờ.</p>
+                }
+                else
+                {
+                    <ul class="list-group list-group-flush players-inv-list">
+                        @foreach (var inv in _invitations)
+                        {
+                            <li class="list-group-item px-0 py-3 d-flex flex-column flex-md-row gap-3 justify-content-between align-items-md-center">
+                                <div>
+                                    <div class="fw-semibold">@inv.FromUsername</div>
+                                    <div class="small text-muted">@inv.Message</div>
+                                    <div class="small text-muted">@inv.CreatedAt.ToLocalTime().ToString("g")</div>
+                                </div>
+                                <div class="btn-group flex-shrink-0">
+                                    <button class="btn btn-sm btn-success" type="button" disabled="@(_busyInviteAction != null)" @onclick="() => AcceptInviteAsync(inv.Id)">
+                                        @if (_busyInviteAction == inv.Id + "a") { <span class="spinner-border spinner-border-sm"></span> }
+                                        else { <span>Đồng ý</span> }
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" type="button" disabled="@(_busyInviteAction != null)" @onclick="() => DeclineInviteAsync(inv.Id)">
+                                        @if (_busyInviteAction == inv.Id + "d") { <span class="spinner-border spinner-border-sm"></span> }
+                                        else { <span>Từ chối</span> }
+                                    </button>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+    }
 }
 
 @if (_tab == 1)
 {
+    <div class="card border-0 shadow-sm players-card">
+    <div class="card-body">
+    <p class="text-muted small mb-3">Tìm người chơi theo tên để gửi lời mời nhanh.</p>
+    @if (_session == null)
+    {
+        <p class="text-warning small">Đăng nhập để tìm người chơi và gửi lời mời.</p>
+    }
     <div class="input-group mb-2" style="max-width:28rem">
-        <input class="form-control" @bind="_searchQ" placeholder="query" />
-        <button class="btn btn-outline-primary" type="button" @onclick="SearchStatsAsync">Tìm</button>
+        <input class="form-control" @bind="_searchQ" placeholder="Từ khóa tên" />
+        <button class="btn btn-outline-primary" type="button" disabled="@(_session == null)" @onclick="SearchStatsAsync">Tìm</button>
     </div>
     <div class="table-responsive small">
-        <table class="table table-sm">
-            <thead><tr><th>User</th><th>Điểm</th></tr></thead>
+        <table class="table players-table">
+            <thead><tr><th>Người chơi</th><th>Điểm</th><th>Trận</th>@if (_session != null) { <th class="text-end">Lời mời</th> }</tr></thead>
             <tbody>
                 @foreach (var p in _searchStats?.Players ?? new List<OnlinePlayerDto>())
                 {
-                    <tr><td>@p.Username</td><td>@p.Points</td></tr>
+                    var self = IsSelf(p.Id);
+                    <tr>
+                        <td>@p.Username</td>
+                        <td>@p.Points</td>
+                        <td>@p.GamesPlayed</td>
+                        @if (_session != null)
+                        {
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-primary px-3" type="button" disabled="@(self || _busyInviteId != null)" @onclick="() => InviteAsync(p.Id, p.Username)">
+                                    @if (_busyInviteId == p.Id) { <span class="spinner-border spinner-border-sm" aria-hidden="true"></span> }
+                                    else { <span>Mời</span> }
+                                </button>
+                            </td>
+                        }
+                    </tr>
                 }
             </tbody>
         </table>
+    </div>
+    </div>
     </div>
 }
 
 @if (_tab == 2)
 {
+    <div class="card border-0 shadow-sm players-card">
+    <div class="card-body">
+    <p class="text-muted small mb-3">Nhập GUID để xem thông tin chi tiết người chơi.</p>
+    @if (_session == null)
+    {
+        <p class="text-warning small">Đăng nhập để xem chi tiết và gửi lời mời.</p>
+    }
     <div class="input-group mb-2" style="max-width:32rem">
         <input class="form-control" @bind="_playerGuid" placeholder="Guid người chơi" />
-        <button class="btn btn-outline-primary" type="button" @onclick="LoadDetailStatsAsync">GET .../stats</button>
+        <button class="btn btn-outline-primary" type="button" disabled="@(_session == null)" @onclick="LoadDetailStatsAsync">Xem stats</button>
     </div>
     @if (_detail != null)
     {
@@ -74,144 +236,335 @@
             <dt class="col-sm-3">W/L</dt><dd class="col-sm-9">@_detail.GamesWon / @_detail.GamesLost</dd>
             <dt class="col-sm-3">Win rate</dt><dd class="col-sm-9">@_detail.WinRate.ToString("F1")%</dd>
         </dl>
+        @if (_session != null)
+        {
+            var selfDetail = IsSelf(_detail.Id);
+            <div class="mb-3">
+                <button class="btn btn-primary" type="button" disabled="@(selfDetail || _busyInviteId != null)" @onclick="() => InviteAsync(_detail.Id, _detail.Username)">
+                    @if (_busyInviteId == _detail.Id) { <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> }
+                    Mời người này thi đấu
+                </button>
+                @if (selfDetail)
+                {
+                    <span class="text-muted small ms-2">Đây là tài khoản của bạn.</span>
+                }
+            </div>
+        }
     }
     <JsonApiResult Json="@_rawDetail" Error="@_errDetail" />
-}
-
-@if (_tab == 3)
-{
-    <div class="rps-community-toolbar">
-        <button class="btn btn-sm btn-outline-secondary" type="button" @onclick="LegacyOnlineAsync">GET /players/Online</button>
     </div>
-    <div class="input-group mb-2" style="max-width:28rem">
-        <input class="form-control" @bind="_legacyName" placeholder="Name" />
-        <button class="btn btn-outline-secondary" type="button" @onclick="LegacySearchAsync">Search</button>
     </div>
-    <div class="input-group mb-2" style="max-width:28rem">
-        <input class="form-control" @bind="_legacyId" placeholder="playerId stats" />
-        <button class="btn btn-outline-secondary" type="button" @onclick="LegacyStatsAsync">Stats</button>
-    </div>
-    <JsonApiResult Json="@_legacyJson" Error="@_legacyErr" />
-}
-
-@if (_tab == 4)
-{
-    @if (_session == null)
-    {
-        <p class="text-muted">Đăng nhập để dùng invite / invitations.</p>
-    }
-    else
-    {
-        <div class="mb-3">
-            <label class="form-label">POST invite — playerId đích</label>
-            <div class="input-group" style="max-width:36rem">
-                <input class="form-control" @bind="_inviteTarget" />
-                <input class="form-control" @bind="_inviteMsg" placeholder="message" />
-                <button class="btn btn-primary" type="button" @onclick="DoInviteAsync">Gửi</button>
-            </div>
-        </div>
-        <button class="btn btn-sm btn-outline-primary mb-2" type="button" @onclick="LoadInvitesAsync">GET invitations (tôi)</button>
-        <JsonApiResult Json="@_invJson" Error="@_invErr" />
-    }
 }
 </div>
+
+<style>
+    .players-hub-page .players-hero-subtitle {
+        color: var(--bs-secondary-color);
+        margin: .25rem 0 0;
+    }
+
+    .players-status-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+    }
+
+    .players-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .35rem .65rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, .08);
+        color: var(--bs-body-color);
+        font-size: .82rem;
+    }
+
+    .players-tabs .nav-link {
+        border-radius: .7rem;
+        padding: .5rem .9rem;
+    }
+
+    .players-tabs .nav-link.active {
+        box-shadow: 0 6px 18px rgba(13, 110, 253, .25);
+    }
+
+    .players-card {
+        border-radius: .9rem;
+        overflow: hidden;
+    }
+
+    .players-table th,
+    .players-table td {
+        vertical-align: middle;
+    }
+
+    .players-table th {
+        font-size: .8rem;
+        text-transform: uppercase;
+        letter-spacing: .03em;
+        color: var(--bs-secondary-color);
+    }
+
+    .players-legacy-stats {
+        background: rgba(255, 255, 255, .03);
+    }
+
+    .players-inv-list .list-group-item {
+        border-color: rgba(255, 255, 255, .08);
+    }
+</style>
 
 @code {
     private int _tab;
     private PortalAuthState? _session;
     private OnlinePlayersResponse? _onlineStats;
-    private string? _rawOnline;
+    private OnlinePlayerDetailDto? _legacyOnline;
     private string? _errOnline;
+    private string? _errLegacy;
+    private string? _invErr;
+    private List<PlayerInvitationDto> _invitations = new();
+    private bool _loadingOnline;
+    private string? _busyInviteId;
+    private string? _busyInviteAction;
+    private string? _toastOk;
+    private string? _toastErr;
+
     private string _searchQ = "";
     private OnlinePlayersResponse? _searchStats;
     private string _playerGuid = "";
     private DetailedPlayerStatsDto? _detail;
     private string? _rawDetail;
     private string? _errDetail;
-    private string? _legacyJson;
-    private string? _legacyErr;
-    private string _legacyName = "";
-    private string _legacyId = "";
-    private string _inviteTarget = "";
-    private string _inviteMsg = "Want to play a quick match?";
-    private string? _invJson;
-    private string? _invErr;
+
+    private enum OnlineListSource { None, PlayerStats, Legacy }
+
+    private sealed record OnlineDisplayRow(string Id, string Username, long Points, int Games, OnlineListSource Source);
+
+    private List<OnlineDisplayRow> _onlineDisplayRows = new();
+    private OnlineListSource _onlineListSource;
+
+    private void RebuildOnlineDisplayRows()
+    {
+        _onlineDisplayRows.Clear();
+        _onlineListSource = OnlineListSource.None;
+
+        if (_session != null)
+        {
+            var statsPlayers = _onlineStats?.Players;
+            var statsOk = string.IsNullOrEmpty(_errOnline);
+            if (statsOk && statsPlayers is { Count: > 0 })
+            {
+                foreach (var p in statsPlayers)
+                    _onlineDisplayRows.Add(new OnlineDisplayRow(p.Id, p.Username, p.Points, p.GamesPlayed, OnlineListSource.PlayerStats));
+                _onlineListSource = OnlineListSource.PlayerStats;
+                return;
+            }
+
+            if (_legacyOnline?.Players is { Count: > 0 } leg)
+            {
+                foreach (var p in leg)
+                    _onlineDisplayRows.Add(new OnlineDisplayRow(p.UserId, p.UserName, p.Point, p.GamePlayed, OnlineListSource.Legacy));
+                _onlineListSource = OnlineListSource.Legacy;
+                return;
+            }
+
+            return;
+        }
+
+        if (_legacyOnline?.Players is { Count: > 0 } guest)
+        {
+            foreach (var p in guest)
+                _onlineDisplayRows.Add(new OnlineDisplayRow(p.UserId, p.UserName, p.Point, p.GamePlayed, OnlineListSource.Legacy));
+            _onlineListSource = OnlineListSource.Legacy;
+        }
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
         _session = await Auth.LoadAsync();
+        ClearToasts();
+        await RefreshOnlineAsync();
         StateHasChanged();
+    }
+
+    private async Task OnTabAsync(int tab)
+    {
+        _tab = tab;
+        if (tab == 0)
+            await RefreshOnlineAsync();
     }
 
     private string TabClass(int i) => _tab == i ? "active" : "";
 
-    private async Task LoadOnlineStatsAsync()
+    private bool IsSelf(string playerId) =>
+        _session != null && string.Equals(playerId, _session.UserId.ToString(), StringComparison.OrdinalIgnoreCase);
+
+    private void ClearToasts()
     {
-        _errOnline = null;
-        _rawOnline = null;
-        var (ok, data, err) = await Api.GetOnlinePlayersStatsAsync();
-        _onlineStats = data;
-        if (!ok) _errOnline = err;
+        _toastOk = _toastErr = null;
+    }
+
+    private async Task RefreshOnlineAsync()
+    {
+        ClearToasts();
+        _loadingOnline = true;
+        StateHasChanged();
+        try
+        {
+            if (_session != null)
+            {
+                var t1 = Api.PlayersLegacyOnlineDetailAsync();
+                var t2 = Api.GetOnlinePlayersStatsAsync();
+                var t3 = Api.GetMyInvitationsAsync();
+                await Task.WhenAll(t1, t2, t3);
+
+                var (okL, legacy, errL) = await t1;
+                _legacyOnline = legacy;
+                _errLegacy = okL ? null : errL;
+
+                var (okS, data, errS) = await t2;
+                _onlineStats = data;
+                _errOnline = okS ? null : errS;
+
+                var (okI, list, errI) = await t3;
+                _invitations = okI && list != null ? list.ToList() : new List<PlayerInvitationDto>();
+                _invErr = okI ? null : errI;
+            }
+            else
+            {
+                var (okL, legacy, errL) = await Api.PlayersLegacyOnlineDetailAsync();
+                _legacyOnline = legacy;
+                _errLegacy = okL ? null : errL;
+                _onlineStats = null;
+                _errOnline = null;
+                _invitations = new List<PlayerInvitationDto>();
+                _invErr = null;
+            }
+
+            RebuildOnlineDisplayRows();
+        }
+        finally
+        {
+            _loadingOnline = false;
+        }
+    }
+
+    /// <summary>Chỉ tải lại danh sách lời mời (không xóa toast thành công từ đồng ý/từ chối).</summary>
+    private async Task LoadInvitationsOnlyAsync()
+    {
+        if (_session == null) return;
+        var (ok, list, err) = await Api.GetMyInvitationsAsync();
+        _invitations = ok && list != null ? list.ToList() : new List<PlayerInvitationDto>();
+        _invErr = ok ? null : err;
+    }
+
+    private async Task RefreshInvitationsButtonAsync()
+    {
+        ClearToasts();
+        await LoadInvitationsOnlyAsync();
+        if (string.IsNullOrEmpty(_invErr))
+            _toastOk = "Đã cập nhật lời mời.";
+    }
+
+    private async Task InviteAsync(string playerId, string? displayName)
+    {
+        ClearToasts();
+        _busyInviteId = playerId;
+        try
+        {
+            var (ok, _, err) = await Api.PlayersInviteAsync(playerId, $"Lời mời từ trang Người chơi{(string.IsNullOrEmpty(displayName) ? "" : $" → {displayName}")}");
+            if (ok)
+                _toastOk = "Đã gửi lời mời.";
+            else
+                _toastErr = err ?? "Gửi lời mời thất bại.";
+        }
+        finally
+        {
+            _busyInviteId = null;
+        }
+    }
+
+    private async Task AcceptInviteAsync(string inviteId)
+    {
+        ClearToasts();
+        _busyInviteAction = inviteId + "a";
+        try
+        {
+            var (ok, _, msg, err) = await Api.AcceptInvitationAsync(inviteId);
+            if (ok)
+            {
+                _toastOk = msg ?? "Bạn đã đồng ý.";
+                await LoadInvitationsOnlyAsync();
+            }
+            else
+                _toastErr = err ?? "Không chấp nhận được lời mời.";
+        }
+        finally
+        {
+            _busyInviteAction = null;
+        }
+    }
+
+    private async Task DeclineInviteAsync(string inviteId)
+    {
+        ClearToasts();
+        _busyInviteAction = inviteId + "d";
+        try
+        {
+            var (ok, msg, err) = await Api.DeclineInvitationAsync(inviteId);
+            if (ok)
+            {
+                _toastOk = msg ?? "Đã từ chối.";
+                await LoadInvitationsOnlyAsync();
+            }
+            else
+                _toastErr = err ?? "Không từ chối được.";
+        }
+        finally
+        {
+            _busyInviteAction = null;
+        }
     }
 
     private async Task SearchStatsAsync()
     {
-        var (ok, data, _) = await Api.SearchPlayersStatsAsync(_searchQ);
+        ClearToasts();
+        if (_session == null)
+        {
+            _toastErr = "Đăng nhập để tìm người chơi.";
+            return;
+        }
+        var (ok, data, err) = await Api.SearchPlayersStatsAsync(_searchQ);
         _searchStats = data;
+        if (!ok)
+            _toastErr = err ?? "Tìm kiếm thất bại.";
     }
 
     private async Task LoadDetailStatsAsync()
     {
+        ClearToasts();
         _errDetail = null;
         _rawDetail = null;
         _detail = null;
+        if (_session == null)
+        {
+            _toastErr = "Đăng nhập để xem chi tiết người chơi.";
+            return;
+        }
         if (!Guid.TryParse(_playerGuid, out var g))
         {
             _errDetail = "GUID không hợp lệ";
+            _toastErr = _errDetail;
             return;
         }
         var (ok, d, err) = await Api.GetDetailedPlayerStatsAsync(g);
         _detail = d;
-        if (!ok) _errDetail = err;
-    }
-
-    private async Task LegacyOnlineAsync()
-    {
-        var (ok, body, err) = await Api.PlayersLegacyOnlineAsync();
-        _legacyJson = ok ? body : null;
-        _legacyErr = err;
-    }
-
-    private async Task LegacySearchAsync()
-    {
-        var (ok, body, err) = await Api.PlayersLegacySearchAsync(_legacyName);
-        _legacyJson = ok ? body : null;
-        _legacyErr = err;
-    }
-
-    private async Task LegacyStatsAsync()
-    {
-        var (ok, body, err) = await Api.PlayersLegacyStatsAsync(_legacyId);
-        _legacyJson = ok ? body : null;
-        _legacyErr = err;
-    }
-
-    private async Task DoInviteAsync()
-    {
-        _invErr = null;
-        _invJson = null;
-        var (ok, body, err) = await Api.PlayersInviteAsync(_inviteTarget, _inviteMsg);
-        _invJson = ok ? body : null;
-        _invErr = err;
-    }
-
-    private async Task LoadInvitesAsync()
-    {
-        if (_session == null) return;
-        _invErr = null;
-        var (ok, body, err) = await Api.PlayersGetInvitationsAsync(_session.UserId.ToString());
-        _invJson = ok ? body : null;
-        _invErr = err;
+        if (!ok)
+        {
+            _errDetail = err;
+            _toastErr = err ?? "Không tải được chi tiết.";
+        }
     }
 }

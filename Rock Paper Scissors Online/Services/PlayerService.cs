@@ -2,7 +2,6 @@ using Rock_Paper_Scissors_Online.DTOs;
 using Rock_Paper_Scissors_Online.Enums;
 using Rock_Paper_Scissors_Online.Repository.Interfaces;
 using Rock_Paper_Scissors_Online.Services.Interfaces;
-using System.Collections.Concurrent;
 
 namespace Rock_Paper_Scissors_Online.Services
 {
@@ -11,8 +10,9 @@ namespace Rock_Paper_Scissors_Online.Services
         private readonly IUserTrackerService _userTrackerService;
         private readonly IUserRepository _userRepository;
         private readonly IRoomService _roomService;
-        private static readonly ConcurrentDictionary<string, List<InviteRequestDto>> _invitations
-            = new();
+
+        private static readonly object InviteLock = new();
+        private static readonly Dictionary<string, List<PlayerInvitationDto>> InvitesByToUser = new();
 
         public PlayerService(IUserTrackerService userTrackerService, IUserRepository userRepository, IRoomService roomService)
         {
@@ -20,19 +20,17 @@ namespace Rock_Paper_Scissors_Online.Services
             _userRepository = userRepository;
             _roomService = roomService;
         }
+
         public async Task<OnlinePlayerDetailDto> GetOnlinePlayersAndStatsAsync()
         {
-            // lấy list id của người chơi đang online
-            var OnlinePlayersIds = (await _userTrackerService.GetOnlineUserId()).Select(Guid.Parse).ToList();
+            var onlinePlayersIds = (await _userTrackerService.GetOnlineUserId()).Select(Guid.Parse).ToList();
 
             var onlinePlayerList = new List<OnlinePlayerDetailDto>();
 
-            if (OnlinePlayersIds.Any())
+            if (onlinePlayersIds.Any())
             {
-                // 2. Lấy thông tin chi tiết từ DB cho những người dùng đó
-                var usersFromDb = await _userRepository.GetUsersByIdsAsync(OnlinePlayersIds);
+                var usersFromDb = await _userRepository.GetUsersByIdsAsync(onlinePlayersIds);
 
-                // 3. Map từ User model sang DTO
                 onlinePlayerList = usersFromDb.Select(u => new OnlinePlayerDetailDto
                 {
                     UserId = u.Id.ToString(),
@@ -45,27 +43,20 @@ namespace Rock_Paper_Scissors_Online.Services
                     Avatar = u.Avatar
                 }).ToList();
             }
-            // 4. Lấy thông tin về số phòng hiện có và số kết nối trong game
+
             var allRooms = await _roomService.GetAllRoomsAsync();
-
-            // tính total GameRoom
             var totalRoom = allRooms.Count;
-
-            // tính total connection in game
             var totalConnectionInGame = allRooms
-                                        .Where(r => r.Status == Enums.RoomStatus.Playing) // chỉ tính phòng đang chơi
-                                        .Sum(r => r.CurrentPlayers); // tổng số người chơi trong các phòng đó
+                .Where(r => r.Status == RoomStatus.Playing)
+                .Sum(r => r.CurrentPlayers);
 
-            // 5. Tạo và trả về DTO tổng hợp
-            var response = new OnlinePlayerDetailDto
+            return new OnlinePlayerDetailDto
             {
                 Players = onlinePlayerList,
                 TotalRoom = totalRoom,
-                TotalOnline = OnlinePlayersIds.Count,
+                TotalOnline = onlinePlayersIds.Count,
                 TotalConnectionInGame = totalConnectionInGame
             };
-
-            return response;
         }
 
         public async Task<IEnumerable<OnlinePlayerDetailDto>> SearchPlayersByUsernameAsync(string username)
@@ -90,10 +81,6 @@ namespace Rock_Paper_Scissors_Online.Services
             var user = await _userRepository.GetByIdAsync(Guid.Parse(playerId));
             if (user == null) return null;
 
-            // check online status từ UserTracker
-            var onlineIds = await _userTrackerService.GetOnlineUserId();
-            var isOnline = onlineIds.Contains(user.Id.ToString());
-
             return new PlayerStatsDto
             {
                 UserId = user.Id.ToString(),
@@ -104,29 +91,95 @@ namespace Rock_Paper_Scissors_Online.Services
                 CurrentStreak = user.CurrentWinStreak,
                 LongestStreak = user.LongestWinStreak,
                 LastActive = user.LastPlayedAt?.UtcDateTime,
-                //Status = isOnline ? "online" : "offline",
                 Avatar = user.Avatar,
                 JoinedAt = user.CreatedAt.UtcDateTime
             };
         }
 
-
-
-        public void SendInvitation(string toPlayerId, InviteRequestDto request)
+        public void SendInvitation(string fromUserId, string fromUsername, string toPlayerId, InviteRequestDto request)
         {
-            if (!_invitations.ContainsKey(toPlayerId))
+            if (string.Equals(fromUserId, toPlayerId, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Không thể mời chính mình.");
+
+            var inv = new PlayerInvitationDto
             {
-                _invitations[toPlayerId] = new List<InviteRequestDto>();
+                Id = Guid.NewGuid().ToString("N"),
+                FromUserId = fromUserId,
+                FromUsername = string.IsNullOrWhiteSpace(fromUsername) ? "Player" : fromUsername.Trim(),
+                ToUserId = toPlayerId,
+                Message = string.IsNullOrWhiteSpace(request.Message) ? "Bạn có muốn thi đấu không?" : request.Message.Trim(),
+                CreatedAt = DateTime.UtcNow,
+                Status = "pending"
+            };
+
+            lock (InviteLock)
+            {
+                if (!InvitesByToUser.TryGetValue(toPlayerId, out var list))
+                {
+                    list = new List<PlayerInvitationDto>();
+                    InvitesByToUser[toPlayerId] = list;
+                }
+
+                list.Add(inv);
             }
 
-            _invitations[toPlayerId].Add(request);
-
-            Console.WriteLine($"Invitation sent to Player {toPlayerId} with message: {request.Message}");
+            Console.WriteLine($"[INVITE] {fromUsername} -> {toPlayerId} ({inv.Id})");
         }
 
-        public IEnumerable<InviteRequestDto> GetInvitations(string playerId)
+        public IReadOnlyList<PlayerInvitationDto> GetPendingInvitations(string toPlayerId)
         {
-            return _invitations.TryGetValue(playerId, out var list) ? list : Enumerable.Empty<InviteRequestDto>();
+            lock (InviteLock)
+            {
+                if (!InvitesByToUser.TryGetValue(toPlayerId, out var list))
+                    return Array.Empty<PlayerInvitationDto>();
+
+                return list
+                    .Where(i => string.Equals(i.Status, "pending", StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(i => i.CreatedAt)
+                    .ToList();
+            }
+        }
+
+        public bool TryAcceptInvitation(string toPlayerId, string inviteId, out PlayerInvitationDto? invitation)
+        {
+            invitation = null;
+            lock (InviteLock)
+            {
+                if (!InvitesByToUser.TryGetValue(toPlayerId, out var list))
+                    return false;
+
+                var item = list.FirstOrDefault(i =>
+                    string.Equals(i.Id, inviteId, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(i.Status, "pending", StringComparison.OrdinalIgnoreCase));
+
+                if (item == null)
+                    return false;
+
+                item.Status = "accepted";
+                invitation = item;
+                list.Remove(item);
+                return true;
+            }
+        }
+
+        public bool TryDeclineInvitation(string toPlayerId, string inviteId)
+        {
+            lock (InviteLock)
+            {
+                if (!InvitesByToUser.TryGetValue(toPlayerId, out var list))
+                    return false;
+
+                var item = list.FirstOrDefault(i =>
+                    string.Equals(i.Id, inviteId, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(i.Status, "pending", StringComparison.OrdinalIgnoreCase));
+
+                if (item == null)
+                    return false;
+
+                item.Status = "declined";
+                list.Remove(item);
+                return true;
+            }
         }
     }
 }

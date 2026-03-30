@@ -1,6 +1,8 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Rock_Paper_Scissors_Online.DTOs;
 using Rock_Paper_Scissors_Online.Services.Interfaces;
+using System.Security.Claims;
 
 namespace Rock_Paper_Scissors_Online.Controllers
 {
@@ -25,12 +27,11 @@ namespace Rock_Paper_Scissors_Online.Controllers
                 return Ok(new
                 {
                     success = true,
-                    data = data
+                    data
                 });
             }
             catch (Exception ex)
             {
-                // Ghi log lỗi ở đây
                 return StatusCode(500, new
                 {
                     success = false,
@@ -39,7 +40,6 @@ namespace Rock_Paper_Scissors_Online.Controllers
                 });
             }
         }
-
 
         [HttpGet("search")]
         public async Task<IActionResult> SearchPlayers([FromQuery] string Name)
@@ -64,9 +64,6 @@ namespace Rock_Paper_Scissors_Online.Controllers
             return Ok(new { success = true, data = response });
         }
 
-
-
-        // GET /api/v1/players/{playerId}/stats
         [HttpGet("{playerId}/stats")]
         public async Task<IActionResult> GetPlayerStats(string playerId)
         {
@@ -90,26 +87,91 @@ namespace Rock_Paper_Scissors_Online.Controllers
             });
         }
 
-
-
-        // POST /api/v1/players/:playerId/invite
-        [HttpPost("{playerId}/invite")]
-        public IActionResult SendInvitation(string playerId, [FromBody] InviteRequestDto request)
+        [Authorize]
+        [HttpPost("{targetPlayerId}/invite")]
+        public IActionResult SendInvitation(string targetPlayerId, [FromBody] InviteRequestDto request)
         {
-            _playerService.SendInvitation(playerId, request);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var username = User.FindFirst(ClaimTypes.Name)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { success = false, message = "Chưa đăng nhập" });
+
+            if (string.Equals(userId, targetPlayerId, StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { success = false, message = "Không thể mời chính mình" });
+
+            try
+            {
+                _playerService.SendInvitation(userId, username ?? "Player", targetPlayerId, request);
+                return Ok(new
+                {
+                    success = true,
+                    message = "Đã gửi lời mời"
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        [Authorize]
+        [HttpGet("me/invitations")]
+        public IActionResult GetMyInvitations()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            var list = _playerService.GetPendingInvitations(userId);
+            return Ok(new { success = true, data = list });
+        }
+
+        [Authorize]
+        [HttpPost("me/invitations/{inviteId}/accept")]
+        public IActionResult AcceptInvitation(string inviteId)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            if (!_playerService.TryAcceptInvitation(userId, inviteId, out var inv))
+                return NotFound(new { success = false, message = "Không tìm thấy lời mời hoặc đã xử lý" });
 
             return Ok(new
             {
                 success = true,
-                message = "Invitation sent successfully"
+                message = "Bạn đã đồng ý thi đấu",
+                data = inv
             });
         }
 
-        // GET /api/v1/players/:playerId/invitations
+        [Authorize]
+        [HttpPost("me/invitations/{inviteId}/decline")]
+        public IActionResult DeclineInvitation(string inviteId)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            if (!_playerService.TryDeclineInvitation(userId, inviteId))
+                return NotFound(new { success = false, message = "Không tìm thấy lời mời hoặc đã xử lý" });
+
+            return Ok(new { success = true, message = "Đã từ chối lời mời" });
+        }
+
+        /// <summary>Đọc hộp thư lời mời theo playerId (chỉ chính chủ).</summary>
+        [Authorize]
         [HttpGet("{playerId}/invitations")]
         public IActionResult GetInvitations(string playerId)
         {
-            var invitations = _playerService.GetInvitations(playerId);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            if (!string.Equals(userId, playerId, StringComparison.OrdinalIgnoreCase))
+                return Forbid();
+
+            var invitations = _playerService.GetPendingInvitations(playerId);
 
             return Ok(new
             {
