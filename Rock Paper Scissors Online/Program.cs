@@ -21,6 +21,11 @@ namespace Rock_Paper_Scissors_Online
     {
         public static void Main(string[] args)
         {
+            // Render/Docker: tránh hết inotify (IOException 1024 / exit 139) khi reload appsettings.
+            AppContext.SetSwitch("System.IO.UsePollingFileWatcher", true);
+            Environment.SetEnvironmentVariable("DOTNET_USE_POLLING_FILE_WATCHER", "1");
+            Environment.SetEnvironmentVariable("DOTNET_hostBuilder__reloadConfigOnChange", "false");
+
             var builder = WebApplication.CreateBuilder(args);
 
             // Đưa secret từ biến môi trường (Jwt__Key, JWT_KEY, …) vào Jwt:Key để mọi IConfiguration đều thấy.
@@ -52,11 +57,11 @@ namespace Rock_Paper_Scissors_Online
                 || dbProvider.Equals("Npgsql", StringComparison.OrdinalIgnoreCase))
             {
                 var pg = PostgresConnectionResolver.Resolve(builder.Configuration)
-                    ?? throw new InvalidOperationException(
-                        "Thiếu chuỗi kết nối PostgreSQL. Đặt một trong các giá trị sau (không dùng localhost trên cloud): "
-                        + "ConnectionStrings__PostgresConnection (chuỗi Npgsql hoặc URI postgresql://), "
-                        + "hoặc DATABASE_URL / POSTGRES_URL (Render, Railway). "
-                        + "Tên biến trên dashboard phải đúng (ví dụ ConnectionStrings__PostgresConnection — hai dấu gạch dưới).");
+                    ?? throw new InvalidOperationException(PostgresConnectionResolver.BuildMissingConnectionExceptionMessage());
+                builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:PostgresConnection"] = pg
+                });
                 builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql(pg));
             }
             else if (dbProvider.Equals("SqlServer", StringComparison.OrdinalIgnoreCase)

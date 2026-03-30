@@ -33,8 +33,7 @@ public sealed class ApplicationDbContextFactory : IDesignTimeDbContextFactory<Ap
             || provider.Equals("Npgsql", StringComparison.OrdinalIgnoreCase))
         {
             var cs = PostgresConnectionResolver.Resolve(config)
-                     ?? throw new InvalidOperationException(
-                         "Thiếu PostgreSQL: ConnectionStrings:PostgresConnection hoặc DATABASE_URL / POSTGRES_URL.");
+                     ?? throw new InvalidOperationException(PostgresConnectionResolver.BuildMissingConnectionExceptionMessage());
             optionsBuilder.UseNpgsql(cs);
         }
         else
