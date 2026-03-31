@@ -790,10 +790,11 @@ else
         if (_hub == null)
             return;
         _hubBusy = true;
+        // Optimistic UI: cập nhật trạng thái cục bộ ngay để phản hồi nhanh,
+        // sau đó để SignalR (PlayerReadyChanged) đồng bộ lại phòng.
         try
         {
             await _hub.InvokeAsync("SetPlayerReady", RoomId, isReady);
-            await RefreshRoomUiAsync();
         }
         finally
         {
@@ -806,6 +807,8 @@ else
         if (_hub == null)
             return;
         _hubBusy = true;
+        // Optimistic UI: clear lịch sử và đặt lại phase hiển thị ngay,
+        // trạng thái thật sẽ được đồng bộ lại qua các sự kiện hub.
         try
         {
             await _hub.InvokeAsync("StartGame", RoomId);
@@ -815,7 +818,6 @@ else
             _roundHistory.Clear();
             _lastRound = null;
             _showRoundInfo = true;
-            await RefreshRoomUiAsync();
         }
         finally
         {
@@ -828,11 +830,11 @@ else
         if (_hub == null)
             return;
         _hubBusy = true;
+        // Optimistic UI: đánh dấu lựa chọn ngay; kết quả ván sẽ tới qua RoundCompleted / MovesLocked.
         _selectedMove = move;
         try
         {
             await _hub.InvokeAsync("SubmitMove", RoomId, move);
-            await RefreshRoomUiAsync();
         }
         finally
         {
