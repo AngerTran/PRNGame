@@ -41,7 +41,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
 
         private const int RoundMoveSelectionSeconds = 10;
         private const int MoveRevealCountdownSeconds = 5;
-        private const int MovesRevealedPauseBeforeRoundMs = 700;
+        private const int MovesRevealedPauseBeforeRoundMs = 250;
 
         // Static service references for timeout handling
         private static IRoomService? _staticRoomService;
@@ -1188,17 +1188,14 @@ namespace Rock_Paper_Scissors_Online.Hubs
 
                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Starting game for GameRoom {roomId} - both players present and opponent ready");
 
-                // Transition to betting phase
-                await SendPhaseChangedAsync(roomId, "betting_phase");
-
-                // Update GameRoom status to Playing when game starts (betting phase)
-                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} transitioning to Playing status (Game Started - Betting Phase)");
+                // Khi chủ phòng bấm Bắt đầu: chuyển thẳng sang hiệp 1 với một mốc đếm ngược 10s (round_active).
                 await _roomService.UpdateRoomStatusAsync(roomId, RoomStatus.Playing);
-                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} successfully set to Playing status (Game Started - Betting Phase)");
+                await SendPhaseChangedAsync(roomId, "round_active");
 
-                // Start betting phase timer (10 seconds)
-                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Starting betting_phase timer (10 seconds)");
-                StartRoomTimerStatic(roomId, 10, "betting_phase");
+                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} set to Playing and round_active started");
+
+                // Bắt đầu timer 10s cho lượt đầu tiên
+                StartRoomTimerStatic(roomId, RoundMoveSelectionSeconds, "round_active");
             }
             catch (Exception ex)
             {
@@ -1391,47 +1388,21 @@ namespace Rock_Paper_Scissors_Online.Hubs
                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Player 1 ({GameRoom.Player1!?.Username}): {GameRoom.Player1!?.CurrentChoice ?? "No move"}");
                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Player 2 ({GameRoom.Player2!?.Username}): {GameRoom.Player2!?.CurrentChoice ?? "No move"}");
 
-                // Check if both players have made their moves
-                if (GameRoom.Player1!?.CurrentChoice != null && GameRoom.Player2!?.CurrentChoice != null)
+                // Thông báo đã chọn; việc hết giờ & reveal được điều khiển bởi timer round_active/move_reveal.
+                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Waiting for opponent or timer to complete");
+                await Clients.Group(roomId).SendAsync("MoveSubmitted", new
                 {
-                    GameRoom.PendingRevealResolution = true;
-                    var revealEndsAt = DateTime.UtcNow.AddSeconds(MoveRevealCountdownSeconds);
-
-                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Both players submitted — {MoveRevealCountdownSeconds}s hidden reveal then process round");
-
-                    await SendPhaseChangedAsync(roomId, "reveal_countdown");
-
-                    await Clients.Group(roomId).SendAsync("MovesLocked", new
+                    success = true,
+                    message = $"{username} has made their move",
+                    data = new
                     {
-                        success = true,
-                        message = "Moves locked — reveal countdown (no moves shown yet)",
-                        data = new
-                        {
-                            player1Username = GameRoom.Player1!.Username,
-                            player2Username = GameRoom.Player2!.Username,
-                            revealEndsAt = revealEndsAt.ToString("o")
-                        }
-                    });
-
-                    StartRoomTimerStatic(roomId, MoveRevealCountdownSeconds, "move_reveal");
-                }
-                else
-                {
-                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Waiting for opponent to submit move");
-                    await Clients.Group(roomId).SendAsync("MoveSubmitted", new
-                    {
-                        success = true,
-                        message = $"{username} has made their move",
-                        data = new
-                        {
-                            playerId = userId,
-                            username = username,
-                            move = move,
-                            playerPosition = playerPosition,
-                            waitingForOpponent = true
-                        }
-                    });
-                }
+                        playerId = userId,
+                        username = username,
+                        move = move,
+                        playerPosition = playerPosition,
+                        waitingForOpponent = true
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -1646,64 +1617,13 @@ namespace Rock_Paper_Scissors_Online.Hubs
                     return;
                 }
 
-                var player1Move = GameRoom.Player1!?.CurrentChoice;
-                var player2Move = GameRoom.Player2!?.CurrentChoice;
-                var player1Id = GameRoom.Player1!?.UserId;
-                var player2Id = GameRoom.Player2!?.UserId;
-
                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Handling move timeout for GameRoom {roomId}");
-                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Player 1 ({GameRoom.Player1!?.Username}): {player1Move ?? "No move"}");
-                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Player 2 ({GameRoom.Player2!?.Username}): {player2Move ?? "No move"}");
+                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Player 1 ({GameRoom.Player1!?.Username}): {GameRoom.Player1!?.CurrentChoice ?? "No move"}");
+                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Player 2 ({GameRoom.Player2!?.Username}): {GameRoom.Player2!?.CurrentChoice ?? "No move"}");
 
-                // Case 1: Both players didn't choose - randomize both moves
-                if (player1Move == null && player2Move == null)
-                {
-                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Both players timed out - randomizing moves");
-                    var randomMove1 = GetRandomMove();
-                    var randomMove2 = GetRandomMove();
-
-                    GameRoom.Player1!.CurrentChoice = randomMove1;
-                    GameRoom.Player2!.CurrentChoice = randomMove2;
-
-                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Randomized moves - Player 1: {randomMove1}, Player 2: {randomMove2}");
-
-                    // Process the round with randomized moves
-                    await ProcessRoundStatic(roomId, GameRoom);
-                }
-                // Case 2: Only player 1 didn't choose - player 1 loses
-                else if (player1Move == null && player2Move != null)
-                {
-                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Player 1 ({GameRoom.Player1!?.Username}) timed out - assigning loss");
-
-                    // Assign a losing move to player 1 based on player 2's move
-                    var losingMove = GetLosingMove(player2Move);
-                    GameRoom.Player1!.CurrentChoice = losingMove;
-
-                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Assigned losing move {losingMove} to Player 1");
-
-                    // Process the round
-                    await ProcessRoundStatic(roomId, GameRoom);
-                }
-                // Case 3: Only player 2 didn't choose - player 2 loses
-                else if (player1Move != null && player2Move == null)
-                {
-                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Player 2 ({GameRoom.Player2!?.Username}) timed out - assigning loss");
-
-                    // Assign a losing move to player 2 based on player 1's move
-                    var losingMove = GetLosingMove(player1Move);
-                    GameRoom.Player2!.CurrentChoice = losingMove;
-
-                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Assigned losing move {losingMove} to Player 2");
-
-                    // Process the round
-                    await ProcessRoundStatic(roomId, GameRoom);
-                }
-                // Case 4: Both players already chose (shouldn't happen with timeout, but handle gracefully)
-                else
-                {
-                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Both players already chose - processing round normally");
-                    await ProcessRound(roomId, GameRoom);
-                }
+                // Hết thời gian chọn nhưng chưa đủ 2 nước đi:
+                // vẫn giữ nguyên trạng thái (có thể null) và xử lý round theo luật timeout mới.
+                await ProcessRoundStatic(roomId, GameRoom);
             }
             catch (Exception ex)
             {
@@ -1769,24 +1689,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
 
                     Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Assigned losing move {losingMove} to Player 1");
                 }
-                // Case 3: Only player 2 didn't choose - player 2 loses
-                else if (player1Move != null && player2Move == null)
-                {
-                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Player 2 ({GameRoom.Player2!?.Username}) timed out - assigning loss");
-
-                    // Assign a losing move to player 2 based on player 1's move
-                    var losingMove = GetLosingMoveStatic(player1Move);
-                    GameRoom.Player2!.CurrentChoice = losingMove;
-
-                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Assigned losing move {losingMove} to Player 2");
-                }
-                // Case 4: Both players already chose (shouldn't happen with timeout, but handle gracefully)
-                else
-                {
-                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Both players already chose - processing round normally");
-                }
-
-                // Process the round immediately since moves are already assigned
+                // Không còn random hay gán nước đi thua; để nguyên (có thể null) rồi xử lý theo luật timeout mới.
                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Processing round immediately after move timeout");
                 await ProcessRoundStatic(roomId, GameRoom);
             }
@@ -1818,13 +1721,6 @@ namespace Rock_Paper_Scissors_Online.Hubs
 
                 var p1 = gr.Player1?.CurrentChoice;
                 var p2 = gr.Player2?.CurrentChoice;
-                if (p1 == null || p2 == null)
-                {
-                    gr.PendingRevealResolution = false;
-                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m move_reveal: missing moves, falling back to timeout handling for {roomId}");
-                    await ProcessMoveTimeoutStatic(roomId);
-                    return;
-                }
 
                 await _hubContext.Clients.Group(roomId).SendAsync("MovesRevealed", new
                 {
@@ -1990,17 +1886,15 @@ namespace Rock_Paper_Scissors_Online.Hubs
                 var player2Id = GameRoom.Player2!?.UserId;
 
                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Processing round for GameRoom {roomId}");
-                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Player 1 ({GameRoom.Player1!?.Username}): {player1Move}");
-                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Player 2 ({GameRoom.Player2!?.Username}): {player2Move}");
+                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Player 1 ({GameRoom.Player1!?.Username}): {player1Move ?? "No move"}");
+                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Player 2 ({GameRoom.Player2!?.Username}): {player2Move ?? "No move"}");
 
-                if (player1Move == null || player2Move == null)
-                {
-                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Cannot process round - missing moves: P1={player1Move}, P2={player2Move}");
-                    return;
-                }
-
-                // Determine round winner with actual player IDs
-                var (result, winner) = DetermineRoundWinnerStatic(player1Move, player2Move, player1Id!, player2Id!);
+                // Determine round winner with actual player IDs, including timeout / no-move cases
+                var (result, winner) = DetermineRoundWinnerStatic(
+                    player1Move,
+                    player2Move,
+                    player1Id!,
+                    player2Id!);
 
                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Round result: {result}, Winner: {winner}");
 
@@ -2506,10 +2400,30 @@ namespace Rock_Paper_Scissors_Online.Hubs
         /// <summary>
         /// Static version of DetermineRoundWinner for use in static methods
         /// </summary>
-        private static (string Result, string Winner) DetermineRoundWinnerStatic(string player1Move, string player2Move, string player1Id, string player2Id)
+        private static (string Result, string Winner) DetermineRoundWinnerStatic(string? player1Move, string? player2Move, string player1Id, string player2Id)
         {
-            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Determining winner: {player1Move} vs {player2Move}");
+            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Determining winner: {player1Move ?? "No move"} vs {player2Move ?? "No move"}");
 
+            // Timeout / không chọn: nếu một người không chọn thì người còn lại thắng; cả hai không chọn thì hòa.
+            if (string.IsNullOrEmpty(player1Move) && string.IsNullOrEmpty(player2Move))
+            {
+                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Both players did not choose — round is a tie.");
+                return ("tie", "tie");
+            }
+
+            if (string.IsNullOrEmpty(player1Move) && !string.IsNullOrEmpty(player2Move))
+            {
+                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Player 1 did not choose — Player 2 wins by default.");
+                return ("player2_wins", player2Id);
+            }
+
+            if (!string.IsNullOrEmpty(player1Move) && string.IsNullOrEmpty(player2Move))
+            {
+                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Player 2 did not choose — Player 1 wins by default.");
+                return ("player1_wins", player1Id);
+            }
+
+            // Cả hai đều có nước đi: áp dụng luật kéo/búa/bao bình thường.
             if (player1Move == player2Move)
             {
                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Same moves - it's a tie!");
@@ -2633,6 +2547,14 @@ namespace Rock_Paper_Scissors_Online.Hubs
 
                 // Wait 10 seconds before deletion
                 await Task.Delay(10000);
+
+                // Nếu sau 10s phòng đã bắt đầu trận mới thì không xóa nữa.
+                var latest = await _roomService.GetRoomAsync(roomId);
+                if (latest != null && (latest.Status == RoomStatus.Playing || latest.Status == RoomStatus.InProgress))
+                {
+                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Skip deletion for GameRoom {roomId} because a new match has started.");
+                    return;
+                }
 
                 // Warn all users that GameRoom deletion is happening soon
                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Warning users about GameRoom deletion for GameRoom {roomId}");
@@ -3308,29 +3230,43 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                         Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Round active timer expired for GameRoom {roomId}");
                                         try
                                         {
-                                            // Check if this is move selection phase or animation phase
                                             var GameRoom = await _staticRoomService!.GetRoomAsync(roomId);
                                             if (GameRoom != null)
                                             {
                                                 var player1Move = GameRoom.Player1!?.CurrentChoice;
                                                 var player2Move = GameRoom.Player2!?.CurrentChoice;
 
-                                                // If both players have moves, this is animation phase - process the round
+                                                // Nếu cả hai đã chọn: bắt đầu phase reveal_countdown (luôn đợi hết giờ chọn trước khi reveal).
                                                 if (player1Move != null && player2Move != null)
                                                 {
-                                                    if (GameRoom.PendingRevealResolution)
+                                                    if (!GameRoom.PendingRevealResolution)
                                                     {
-                                                        Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Round timer expired but reveal countdown owns resolution — skipping for GameRoom {roomId}");
-                                                    }
-                                                    else
-                                                    {
-                                                        Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Animation phase complete - processing round for GameRoom {roomId}");
-                                                        await ProcessRoundStatic(roomId, GameRoom);
+                                                        GameRoom.PendingRevealResolution = true;
+                                                        var revealEndsAt = DateTime.UtcNow.AddSeconds(MoveRevealCountdownSeconds);
+
+                                                        Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Both moves locked — starting {MoveRevealCountdownSeconds}s reveal countdown for GameRoom {roomId}");
+
+                                                        await SendPhaseChangedAsync(roomId, "reveal_countdown");
+
+                                                        await _hubContext!.Clients.Group(roomId).SendAsync("MovesLocked", new
+                                                        {
+                                                            success = true,
+                                                            message = "Moves locked — reveal countdown (no moves shown yet)",
+                                                            data = new
+                                                            {
+                                                                player1Username = GameRoom.Player1!.Username,
+                                                                player2Username = GameRoom.Player2!.Username,
+                                                                revealEndsAt = revealEndsAt.ToString("o")
+                                                            }
+                                                        });
+
+                                                        StartRoomTimerStatic(roomId, MoveRevealCountdownSeconds, "move_reveal");
                                                     }
                                                 }
                                                 else
                                                 {
-                                                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Move selection phase complete - processing timeout for GameRoom {roomId}");
+                                                    // Một hoặc cả hai không chọn: xử lý trực tiếp theo luật timeout (thắng/thua/hòa), không có bước reveal.
+                                                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Move selection timer expired with missing moves — processing timeout for GameRoom {roomId}");
                                                     await ProcessMoveTimeoutStatic(roomId);
                                                 }
                                             }
@@ -3802,29 +3738,46 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                     Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Round active timer expired for GameRoom {roomId}");
                                     try
                                     {
-                                        // Check if this is move selection phase or animation phase
                                         var GameRoom = await _staticRoomService!.GetRoomAsync(roomId);
                                         if (GameRoom != null)
                                         {
                                             var player1Move = GameRoom.Player1!?.CurrentChoice;
                                             var player2Move = GameRoom.Player2!?.CurrentChoice;
 
-                                            // If both players have moves, this is animation phase - process the round
                                             if (player1Move != null && player2Move != null)
                                             {
-                                                if (GameRoom.PendingRevealResolution)
+                                                // Cả hai đã chọn: bắt đầu phase reveal_countdown (luôn sau khi hết giờ chọn).
+                                                if (!GameRoom.PendingRevealResolution)
                                                 {
-                                                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Round timer expired but reveal countdown owns resolution — skipping for GameRoom {roomId}");
-                                                }
-                                                else
-                                                {
-                                                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Animation phase complete - processing round for GameRoom {roomId}");
-                                                    await ProcessRoundStatic(roomId, GameRoom);
+                                                    GameRoom.PendingRevealResolution = true;
+                                                    var revealEndsAt = DateTime.UtcNow.AddSeconds(MoveRevealCountdownSeconds);
+
+                                                    Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Both moves locked — starting {MoveRevealCountdownSeconds}s reveal countdown for GameRoom {roomId} (static timer)");
+
+                                                    await SendPhaseChangedAsync(roomId, "reveal_countdown");
+
+                                                    if (_hubContext != null)
+                                                    {
+                                                        await _hubContext.Clients.Group(roomId).SendAsync("MovesLocked", new
+                                                        {
+                                                            success = true,
+                                                            message = "Moves locked — reveal countdown (no moves shown yet)",
+                                                            data = new
+                                                            {
+                                                                player1Username = GameRoom.Player1!.Username,
+                                                                player2Username = GameRoom.Player2!.Username,
+                                                                revealEndsAt = revealEndsAt.ToString("o")
+                                                            }
+                                                        });
+                                                    }
+
+                                                    StartRoomTimerStatic(roomId, MoveRevealCountdownSeconds, "move_reveal");
                                                 }
                                             }
                                             else
                                             {
-                                                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Move selection phase complete - processing timeout for GameRoom {roomId}");
+                                                // Một hoặc cả hai không chọn: xử lý trực tiếp theo luật timeout, không hiện overlay reveal.
+                                                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Move selection timer expired with missing moves — processing timeout for GameRoom {roomId} (static timer)");
                                                 await ProcessMoveTimeoutStatic(roomId);
                                             }
                                         }
