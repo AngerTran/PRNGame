@@ -567,6 +567,22 @@ public sealed class GameApiService : IDisposable
     public Task<(bool Ok, string Body, string? Error)> BettingGetStatisticsAsync(string roomId) =>
         CallAsync(HttpMethod.Get, $"api/v1/Betting/rooms/{Uri.EscapeDataString(roomId)}/statistics");
 
+    public async Task<(bool Ok, object? Data, string? Error)> BettingGetMyBetsAsync()
+    {
+        using var request = await CreateRequestAsync(HttpMethod.Get, "api/v1/Betting/my-bets");
+        using var response = await _http.SendAsync(request);
+        var json = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            return (false, null, TryParseMessage(json));
+
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("data", out var dataEl))
+            return (false, null, "Phản hồi thiếu dữ liệu lịch sử cược.");
+
+        var obj = JsonSerializer.Deserialize<object>(dataEl.GetRawText(), JsonOptions);
+        return (true, obj, null);
+    }
+
     public Task<(bool Ok, string Body, string? Error)> PlayersLegacyOnlineAsync() =>
         CallAsync(HttpMethod.Get, "api/v1/players/Online", null, useAuth: false);
 

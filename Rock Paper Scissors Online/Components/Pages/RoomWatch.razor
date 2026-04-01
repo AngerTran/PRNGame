@@ -1,5 +1,6 @@
 @page "/watch/{RoomId}"
 @rendermode InteractiveServer
+@implements IAsyncDisposable
 @using System.Text.Json
 @using Rock_Paper_Scissors_Online.DTOs
 @inject GameApiService Api
@@ -36,6 +37,19 @@ else
         @if (!string.IsNullOrEmpty(_toast))
         {
             <div class="alert alert-info py-2 small">@_toast</div>
+        }
+
+        @if (_myBetPanelVisible)
+        {
+            <div class="alert @( _myBetDelta >= 0 ? "alert-success" : "alert-secondary" ) py-2 small mb-3">
+                <div class="fw-semibold mb-1">Kết quả cược của bạn</div>
+                <div>
+                    Cược @(_myBetAmount.ToString("N0")) xu ·
+                    @( _myBetDelta >= 0 ? "Lãi" : "Lỗ" )
+                    @Math.Abs(_myBetDelta).ToString("N0") xu ·
+                    Tổng điểm hiện tại: <strong>@_currentPoints.ToString("N0") xu</strong>
+                </div>
+            </div>
         }
 
         @if (_room == null)
@@ -101,32 +115,17 @@ else
                             @onclick="() => PlaceAsync(P1Id!)">
                         Cược @P1Name
                     </button>
-                    <button class="btn rps-watch-bet-btn @(GetBetButtonClass(P2Id))"
-                            type="button"
-                            disabled="@IsBetButtonDisabled(P2Id)"
-                            @onclick="() => PlaceAsync(P2Id!)">
+                    <button class="btn btn-success" type="button" disabled="@(_busy || P2Id == null)" @onclick="() => PlaceAsync(P2Id!)">
                         Cược @P2Name
                     </button>
                 </div>
-                <p class="small text-muted mt-2 mb-0">Mỗi tài khoản chỉ một lần cược mỗi trận trong phòng. Không được cược nếu bạn là người chơi trong phòng.</p>
+                <p class="small text-muted mt-2 mb-0">Mỗi tài khoản chỉ được đặt <strong>1 lần cược</strong> cho cả trận. Người đang thi đấu không được cược.</p>
             </section>
 
             @if (!string.IsNullOrEmpty(_poolSummary))
             {
-                <section class="mt-3">
-                    <div class="d-flex justify-content-between align-items-center mb-1 small text-muted">
-                        <span>Pool hiện tại</span>
-                        <button type="button"
-                                class="btn btn-sm btn-outline-secondary px-2 py-0 rps-watch-toggle-json"
-                                @onclick="() => _showPoolRaw = !_showPoolRaw">
-                            @(_showPoolRaw ? "Ẩn chi tiết" : "Xem chi tiết pool")
-                        </button>
-                    </div>
-
-                    @if (_showPoolRaw)
-                    {
-                        <pre class="rps-json-panel mb-0 text-break">@_poolSummary</pre>
-                    }
+                <section class="small font-monospace text-break border rounded p-2 bg-black bg-opacity-25">
+                    @_poolSummary
                 </section>
             }
         }
@@ -147,8 +146,6 @@ else
     private decimal _selectedStake = 50;
     private static readonly decimal[] _stakes = { 25m, 50m, 100m, 150m };
     private string? _poolSummary;
-    private bool _showPoolRaw;
-    private string? _lockedBetPlayerId;
 
     private string? P1Id => _room?.Player1?.UserId;
     private string? P2Id => _room?.Player2?.UserId;
@@ -201,6 +198,10 @@ else
         _ready = true;
         if (_room != null && ShouldShowBettingUi(_room))
             _ = RefreshPoolQuietAsync();
+
+        if (_room != null)
+            StartWatchLoop();
+
         StateHasChanged();
     }
 
@@ -209,31 +210,113 @@ else
         var (ok, body, _) = await Api.BettingGetPoolAsync(RoomId);
         if (!ok || string.IsNullOrEmpty(body))
             return;
+
         try
         {
             using var doc = JsonDocument.Parse(body);
-            if (doc.RootElement.TryGetProperty("data", out var d))
-                _poolSummary = PrettyPool(d);
-            else
-                _poolSummary = body;
+            if (!doc.RootElement.TryGetProperty("data", out var d))
+                d = doc.RootElement;
+
+            _pool = new BettingPoolUi
+            {
+                TotalPool = d.TryGetProperty("totalPool", out var tp) ? tp.GetDecimal() : 0m,
+                TotalBets = d.TryGetProperty("totalBets", out var tb) ? tb.GetInt32() : 0,
+                Player1Total = d.TryGetProperty("player1Total", out var p1t) ? p1t.GetDecimal() : 0m,
+                Player2Total = d.TryGetProperty("player2Total", out var p2t) ? p2t.GetDecimal() : 0m,
+                Player1PotentialProfit = d.TryGetProperty("player1PotentialProfit", out var p1p) ? p1p.GetDecimal() : 0m,
+                Player2PotentialProfit = d.TryGetProperty("player2PotentialProfit", out var p2p) ? p2p.GetDecimal() : 0m,
+                Player1Percentage = d.TryGetProperty("bettingDistribution", out var dist) && dist.TryGetProperty("player1Percentage", out var p1perc)
+                    ? p1perc.GetDecimal()
+                    : 0m,
+                Player2Percentage = d.TryGetProperty("bettingDistribution", out dist) && dist.TryGetProperty("player2Percentage", out var p2perc)
+                    ? p2perc.GetDecimal()
+                    : 0m
+            };
         }
         catch
         {
-            _poolSummary = body;
+            _pool = null;
         }
+
         await InvokeAsync(StateHasChanged);
     }
 
-    private static string PrettyPool(JsonElement data)
+    private void StartWatchLoop()
     {
-        try
+        _watchLoopCts?.Cancel();
+        _watchLoopCts?.Dispose();
+        _watchLoopCts = new CancellationTokenSource();
+        var token = _watchLoopCts.Token;
+
+        _ = Task.Run(async () =>
         {
-            return JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
-        }
-        catch
+            try
+            {
+                while (!token.IsCancellationRequested)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(3), token);
+                    if (token.IsCancellationRequested)
+                        break;
+
+                    var (okRoom, room, _) = await Api.GetRoomAsync(RoomId);
+                    if (!okRoom || room == null)
+                        continue;
+
+                    if (string.Equals(room.Status, "Finished", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(room.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await LoadMyBetResultAsync();
+                        break;
+                    }
+                }
+            }
+            catch (TaskCanceledException)
+            {
+                // ignore
+            }
+        }, token);
+    }
+
+    private async Task LoadMyBetResultAsync()
+    {
+        if (_session == null)
+            return;
+
+        // Lấy lịch sử cược của chính user
+        var (okBets, data, _) = await Api.BettingGetMyBetsAsync();
+        if (okBets && data is JsonElement el)
         {
-            return data.ToString();
+            BetResponseDto? bet = null;
+
+            if (el.TryGetProperty("completedBets", out var completed) && completed.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in completed.EnumerateArray())
+                {
+                    var b = JsonSerializer.Deserialize<BetResponseDto>(item.GetRawText(),
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    if (b != null && string.Equals(b.GameId, RoomId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        bet = b;
+                        break;
+                    }
+                }
+            }
+
+            if (bet != null)
+            {
+                _myBetAmount = bet.Amount;
+                _myBetPayout = bet.Payout ?? 0;
+                _myBetDelta = _myBetPayout - _myBetAmount;
+                _myBetPanelVisible = true;
+            }
         }
+
+        // Lấy lại tổng điểm hiện tại
+        var (okPts, pts, _) = await Api.GetCurrentPointsAsync();
+        if (okPts)
+            _currentPoints = pts;
+
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task PlaceAsync(string targetPlayerId)
@@ -268,18 +351,5 @@ else
             _busy = false;
             StateHasChanged();
         }
-    }
-
-    private bool IsBetButtonDisabled(string? playerId)
-        => _busy || playerId == null || _lockedBetPlayerId != null;
-
-    private string GetBetButtonClass(string? playerId)
-    {
-        if (_lockedBetPlayerId == null)
-            return string.Empty;
-
-        return playerId == _lockedBetPlayerId
-            ? "rps-watch-bet-btn--chosen"
-            : string.Empty;
     }
 }

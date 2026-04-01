@@ -49,8 +49,17 @@ namespace Rock_Paper_Scissors_Online.Services
         if (!room.AllowBetting)
             throw new InvalidOperationException("Phòng này không bật cược.");
 
-        if (room.Status != RoomStatus.Playing && room.Status != RoomStatus.InProgress)
-            throw new InvalidOperationException("Chỉ được cược khi trận đang diễn ra.");
+        var bothReady = room.Player1?.IsReady == true && room.Player2?.IsReady == true;
+
+        // Chỉ cho phép đặt cược TRƯỚC khi trận bắt đầu:
+        // - Trạng thái waiting
+        // - Đủ 2 người chơi và cả hai đã sẵn sàng
+        // Khi trạng thái đã chuyển sang Playing / InProgress thì khóa cược.
+        if (room.Status == RoomStatus.Playing || room.Status == RoomStatus.InProgress)
+            throw new InvalidOperationException("Trận đấu đã bắt đầu, không thể đặt cược nữa.");
+
+        if (room.Status != RoomStatus.Waiting || !bothReady)
+            throw new InvalidOperationException("Chỉ được cược khi phòng có đủ 2 người chơi và cả hai đã sẵn sàng.");
 
         if (!AllowedBetStakes.Contains(request.Amount))
             throw new ArgumentException($"Mức cược không hợp lệ. Chọn một trong: {string.Join(", ", AllowedBetStakes.OrderBy(x => x))}.");
