@@ -3133,6 +3133,102 @@ body.rps-razor .rps-razor-feature-card .card-body {
     margin-bottom: 0.5rem;
 }
 
+/* —— Trang xem trận / Room watch —— */
+.rps-watch-shell {
+    max-width: min(56rem, 100%);
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0;
+}
+
+.rps-watch-vs.card {
+    border-radius: 0.9rem;
+    border-color: rgba(148, 163, 184, 0.35) !important;
+    background: radial-gradient(circle at top left, rgba(45, 212, 191, 0.2), transparent 55%),
+                radial-gradient(circle at top right, rgba(129, 140, 248, 0.18), transparent 55%),
+                rgba(15, 23, 42, 0.85);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
+}
+
+.rps-watch-vs .card-body {
+    padding: 0.9rem 1.1rem;
+}
+
+@media (min-width: 576px) {
+    .rps-watch-vs .card-body {
+        padding: 1.15rem 1.5rem;
+    }
+}
+
+.rps-watch-bet-btn {
+    min-width: 8.5rem;
+    padding: 0.55rem 1.4rem;
+    border-radius: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    border: none;
+    color: #e5fdfc !important;
+    background: linear-gradient(120deg, #0f766e 0%, #1e40af 55%, #4338ca 100%);
+    box-shadow:
+        0 10px 26px rgba(15, 23, 42, 0.55),
+        0 0 0 1px rgba(15, 23, 42, 0.9);
+    transition:
+        transform 0.12s ease,
+        box-shadow 0.12s ease,
+        filter 0.12s ease;
+}
+
+.rps-watch-bet-btn:hover:not(:disabled) {
+    filter: brightness(1.06);
+    transform: translateY(-1px);
+    box-shadow:
+        0 14px 32px rgba(15, 23, 42, 0.7),
+        0 0 0 1px rgba(56, 189, 248, 0.6);
+}
+
+.rps-watch-bet-btn:active:not(:disabled) {
+    transform: translateY(0);
+    filter: brightness(0.98);
+    box-shadow:
+        0 6px 18px rgba(15, 23, 42, 0.65),
+        0 0 0 1px rgba(30, 64, 175, 0.9);
+}
+
+.rps-watch-bet-btn:focus-visible {
+    outline: none;
+    box-shadow:
+        0 0 0 2px rgba(15, 23, 42, 1),
+        0 0 0 4px rgba(56, 189, 248, 0.85);
+}
+
+.rps-watch-bet-btn--chosen,
+.rps-watch-bet-btn--chosen:disabled {
+    background: linear-gradient(120deg, #0b4f48 0%, #111827 55%, #020617 100%);
+    color: #9ca3af !important;
+    box-shadow:
+        0 4px 14px rgba(15, 23, 42, 0.8),
+        0 0 0 1px rgba(15, 23, 42, 0.9);
+    cursor: not-allowed;
+    filter: none;
+    transform: none;
+}
+
+.rps-watch-bet-btn--locked,
+.rps-watch-bet-btn--locked:disabled {
+    background: linear-gradient(120deg, #020617 0%, #020617 100%);
+    color: #4b5563 !important;
+    box-shadow:
+        0 2px 8px rgba(15, 23, 42, 0.8),
+        0 0 0 1px rgba(15, 23, 42, 0.9);
+    cursor: not-allowed;
+    filter: none;
+    transform: none;
+}
+
+.rps-watch-toggle-json {
+    font-size: 0.7rem;
+}
+
 /* Nav header — bổ trợ layout thanh ngang (scoped NavMenu.razor.css đôi khi bị hạn chế trên một số cấu trúc DOM) */
 @media (min-width: 992px) {
     header.rps-mega-header .rps-mega-nav:not(.rps-mega-nav--guest) {

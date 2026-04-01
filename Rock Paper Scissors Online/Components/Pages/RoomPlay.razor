@@ -30,7 +30,8 @@ else
                         <p class="rps-play-current-round mb-0">Round hiện tại: <strong>@CurrentRoundDisplay</strong></p>
                     }
                 </div>
-                <a class="rps-play-leave" href="/lobby"><i class="bi bi-box-arrow-left" aria-hidden="true"></i> Rời / Sảnh</a>
+                <a class="rps-play-leave" href="/lobby"><i class="bi bi-box-arrow-left" aria-hidden="true"></i> Rời /
+                    Sảnh</a>
             </header>
 
             @if (_isCreator && _room?.IsPrivate == true && !string.IsNullOrWhiteSpace(_room.PinCode))
@@ -38,7 +39,8 @@ else
                 <div class="rps-play-pin-banner" role="status">
                     <i class="bi bi-key-fill me-2" aria-hidden="true"></i>
                     <span>Phòng riêng — mã PIN (chỉ bạn thấy): <strong class="rps-play-pin-code">@_room.PinCode</strong></span>
-                    <span class="rps-play-pin-banner-sub">Gửi mã này cho người chơi kia; họ nhập trong hộp thoại khi bấm Vào phòng ở sảnh.</span>
+                    <span class="rps-play-pin-banner-sub">Gửi mã này cho người chơi kia; họ nhập trong hộp thoại khi bấm Vào
+                        phòng ở sảnh.</span>
                 </div>
             }
 
@@ -83,7 +85,8 @@ else
                                     {
                                         <div class="rps-play-stat">
                                             <dt>@DisplayCountdownLabel</dt>
-                                            <dd class="rps-play-pick-remaining"><span class="rps-play-pick-num">@pickRemain</span> <span class="rps-play-pick-unit">giây</span></dd>
+                                            <dd class="rps-play-pick-remaining"><span class="rps-play-pick-num">@pickRemain</span>
+                                                <span class="rps-play-pick-unit">giây</span></dd>
                                         </div>
                                     }
                                     <div class="rps-play-stat">
@@ -139,23 +142,26 @@ else
                         <div class="rps-play-panel-b rps-play-panel-b--actions">
                             <div class="rps-play-actions">
                                 @if (string.Equals(_room?.Status, "Waiting", StringComparison.OrdinalIgnoreCase)
-                                    || string.Equals(_room?.Status, "Finished", StringComparison.OrdinalIgnoreCase))
+                                                            || string.Equals(_room?.Status, "Finished", StringComparison.OrdinalIgnoreCase))
                                 {
                                     @if (AmIReady)
                                     {
-                                        <button class="btn rps-play-btn-unready" type="button" disabled="@_hubBusy" @onclick="() => SetReadyAsync(false)">
+                                        <button class="btn rps-play-btn-unready" type="button" disabled="@_hubBusy"
+                                            @onclick="() => SetReadyAsync(false)">
                                             <i class="bi bi-x-lg me-1" aria-hidden="true"></i>Hủy sẵn sàng
                                         </button>
                                     }
                                     else
                                     {
-                                        <button class="btn rps-play-btn-ready" type="button" disabled="@_hubBusy" @onclick="() => SetReadyAsync(true)">
+                                        <button class="btn rps-play-btn-ready" type="button" disabled="@_hubBusy"
+                                            @onclick="() => SetReadyAsync(true)">
                                             <i class="bi bi-check2-circle me-1" aria-hidden="true"></i>Sẵn sàng
                                         </button>
                                     }
                                     @if (_isCreator)
                                     {
-                                        <button class="btn rps-play-btn-start" type="button" disabled="@_hubBusy" @onclick="StartGameAsync">
+                                        <button class="btn rps-play-btn-start" type="button" disabled="@_hubBusy"
+                                            @onclick="StartGameAsync">
                                             <i class="bi bi-play-fill me-1" aria-hidden="true"></i>Bắt đầu game
                                         </button>
                                     }
@@ -168,6 +174,13 @@ else
                                     <strong class="rps-play-turn-timer-seconds">@pickActionLeft</strong>
                                     <span class="rps-play-turn-timer-unit">giây</span>
                                 </div>
+                            }
+                            @if (string.Equals(_phase, "result_phase", StringComparison.OrdinalIgnoreCase)
+                                                    || string.Equals(_room?.Status, "Finished", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <p class="small text-muted text-center mt-3 mb-0">
+                                    Hãy bấm <strong>Rời / Sảnh</strong> để quay lại sảnh và tạo phòng mới nếu muốn chơi tiếp.
+                                </p>
                             }
                         </div>
                     </section>
@@ -199,17 +212,20 @@ else
                 <div class="rps-play-moves-b">
                     <button class="@MoveButtonClass("rock")" type="button" disabled="@_hubBusy"
                         aria-label="Chọn búa đá (rock)" @onclick='() => MoveAsync("rock")'>
-                        <img class="rps-play-move-img" src="rps-moves/rock.svg" width="80" height="80" decoding="async" alt="" />
+                        <img class="rps-play-move-img" src="rps-moves/rock.svg" width="80" height="80" decoding="async"
+                            alt="" />
                         <span class="rps-play-move-label">Búa đá</span>
                     </button>
                     <button class="@MoveButtonClass("paper")" type="button" disabled="@_hubBusy"
                         aria-label="Chọn bao (paper)" @onclick='() => MoveAsync("paper")'>
-                        <img class="rps-play-move-img" src="rps-moves/paper.svg" width="80" height="80" decoding="async" alt="" />
+                        <img class="rps-play-move-img" src="rps-moves/paper.svg" width="80" height="80" decoding="async"
+                            alt="" />
                         <span class="rps-play-move-label">Bao</span>
                     </button>
                     <button class="@MoveButtonClass("scissors")" type="button" disabled="@_hubBusy"
                         aria-label="Chọn kéo (scissors)" @onclick='() => MoveAsync("scissors")'>
-                        <img class="rps-play-move-img" src="rps-moves/scissors.svg" width="80" height="80" decoding="async" alt="" />
+                        <img class="rps-play-move-img" src="rps-moves/scissors.svg" width="80" height="80" decoding="async"
+                            alt="" />
                         <span class="rps-play-move-label">Kéo</span>
                     </button>
                 </div>
@@ -223,7 +239,8 @@ else
                     <div class="rps-play-winner-card">
                         <p id="rps-winner-title" class="rps-play-winner-kicker">Trận đấu đã kết thúc</p>
                         <p class="rps-play-winner-label">Người chiến thắng</p>
-                        <p class="rps-play-winner-name"><i class="bi bi-trophy-fill rps-play-winner-ic" aria-hidden="true"></i>@_gameWinnerDisplay</p>
+                        <p class="rps-play-winner-name"><i class="bi bi-trophy-fill rps-play-winner-ic"
+                                aria-hidden="true"></i>@_gameWinnerDisplay</p>
                         <button class="btn rps-play-winner-dismiss" type="button" @onclick="DismissWinnerPanel">Đóng</button>
                     </div>
                 </div>
@@ -248,7 +265,8 @@ else
                                 <span class="rps-play-reveal-name">@_revealP1Username</span>
                                 @if (_revealMovesVisible)
                                 {
-                                    <img class="rps-play-reveal-img" src="@MoveSvgSrc(_revealP1Move)" width="96" height="96" decoding="async" alt="" />
+                                    <img class="rps-play-reveal-img" src="@MoveSvgSrc(_revealP1Move)" width="96" height="96"
+                                        decoding="async" alt="" />
                                 }
                                 else
                                 {
@@ -260,7 +278,8 @@ else
                                 <span class="rps-play-reveal-name">@_revealP2Username</span>
                                 @if (_revealMovesVisible)
                                 {
-                                    <img class="rps-play-reveal-img" src="@MoveSvgSrc(_revealP2Move)" width="96" height="96" decoding="async" alt="" />
+                                    <img class="rps-play-reveal-img" src="@MoveSvgSrc(_revealP2Move)" width="96" height="96"
+                                        decoding="async" alt="" />
                                 }
                                 else
                                 {
@@ -307,7 +326,7 @@ else
     private string? _selectedMove;
 
     private int RevealSecondsLeft =>
-        !_revealVisible ? 0 : Math.Max(0, (int)Math.Ceiling((_revealEndsAtUtc - DateTime.UtcNow).TotalSeconds));
+    !_revealVisible ? 0 : Math.Max(0, (int)Math.Ceiling((_revealEndsAtUtc - DateTime.UtcNow).TotalSeconds));
 
     private int? DisplayCountdownSeconds => IsCountdownPhase(_phase) ? _phaseSecondsLeft : null;
 
@@ -381,48 +400,48 @@ else
         {
             var hubUri = Nav.ToAbsoluteUri($"/gameHub?access_token={Uri.EscapeDataString(s.AccessToken)}");
             _hub = new HubConnectionBuilder()
-                .WithUrl(hubUri)
-                .WithAutomaticReconnect()
-                .Build();
+            .WithUrl(hubUri)
+            .WithAutomaticReconnect()
+            .Build();
 
             _hub.On<string>("Error", msg =>
             {
                 return InvokeAsync(() =>
-                {
-                    _hubError = msg;
-                    StateHasChanged();
-                });
+    {
+                _hubError = msg;
+                StateHasChanged();
+            });
             });
 
             _hub.On<JsonElement>("PhaseChanged", payload =>
             {
                 return InvokeAsync(() =>
+    {
+                if (TryPhase(payload, out var ph))
                 {
-                    if (TryPhase(payload, out var ph))
+                    _phase = ph;
+            // Trận đã bắt đầu — ẩn toast "chủ phòng có thể bắt đầu" (tránh mâu thuẫn với round_active).
+                    if (string.Equals(ph, "round_active", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(ph, "betting_phase", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(ph, "battle_start", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(ph, "reveal_countdown", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(ph, "round_result", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(ph, "result_phase", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(ph, "game_complete", StringComparison.OrdinalIgnoreCase))
+                        _toast = null;
+                    if (IsRoundInfoPhase(ph))
+                        _showRoundInfo = true;
+                    if (IsCountdownPhase(ph) && !_phaseSecondsLeft.HasValue)
+                        _phaseSecondsLeft = DefaultSecondsForPhase(ph);
+                    if (string.Equals(ph, "reveal_countdown", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(ph, "round_result", StringComparison.OrdinalIgnoreCase))
                     {
-                        _phase = ph;
-                        // Trận đã bắt đầu — ẩn toast "chủ phòng có thể bắt đầu" (tránh mâu thuẫn với round_active).
-                        if (string.Equals(ph, "round_active", StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(ph, "betting_phase", StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(ph, "battle_start", StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(ph, "reveal_countdown", StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(ph, "round_result", StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(ph, "result_phase", StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(ph, "game_complete", StringComparison.OrdinalIgnoreCase))
-                            _toast = null;
-                        if (IsRoundInfoPhase(ph))
-                            _showRoundInfo = true;
-                        if (IsCountdownPhase(ph) && !_phaseSecondsLeft.HasValue)
-                            _phaseSecondsLeft = DefaultSecondsForPhase(ph);
-                        if (string.Equals(ph, "reveal_countdown", StringComparison.OrdinalIgnoreCase)
-                            || string.Equals(ph, "round_result", StringComparison.OrdinalIgnoreCase))
-                        {
-                            _phaseSecondsLeft = null;
-                            _selectedMove = null;
-                        }
+                        _phaseSecondsLeft = null;
+                        _selectedMove = null;
                     }
-                    StateHasChanged();
-                });
+                }
+                StateHasChanged();
+            });
             });
 
             _hub.On<JsonElement>("TimerStarted", payload =>
@@ -432,15 +451,15 @@ else
                 if (!string.Equals(rid, RoomId, StringComparison.OrdinalIgnoreCase))
                     return Task.CompletedTask;
                 return InvokeAsync(() =>
+    {
+                if (IsCountdownPhase(ttype))
                 {
-                    if (IsCountdownPhase(ttype))
-                    {
-                        _phaseSecondsLeft = sec;
-                        if (string.Equals(ttype, "round_active", StringComparison.OrdinalIgnoreCase))
-                            _toast = null;
-                    }
-                    StateHasChanged();
-                });
+                    _phaseSecondsLeft = sec;
+                    if (string.Equals(ttype, "round_active", StringComparison.OrdinalIgnoreCase))
+                        _toast = null;
+                }
+                StateHasChanged();
+            });
             });
 
             _hub.On<JsonElement>("TimerUpdate", payload =>
@@ -450,11 +469,11 @@ else
                 if (!string.Equals(rid, RoomId, StringComparison.OrdinalIgnoreCase))
                     return Task.CompletedTask;
                 return InvokeAsync(() =>
-                {
-                    if (IsCountdownPhase(ttype))
-                        _phaseSecondsLeft = sec;
-                    StateHasChanged();
-                });
+    {
+                if (IsCountdownPhase(ttype))
+                    _phaseSecondsLeft = sec;
+                StateHasChanged();
+            });
             });
 
             _hub.On<JsonElement>("TimerCompleted", payload =>
@@ -464,30 +483,30 @@ else
                 if (!string.Equals(rid, RoomId, StringComparison.OrdinalIgnoreCase))
                     return Task.CompletedTask;
                 return InvokeAsync(() =>
+    {
+                if (IsCountdownPhase(ttype))
                 {
-                    if (IsCountdownPhase(ttype))
-                    {
-                        _phaseSecondsLeft = null;
-                        _selectedMove = null;
-                    }
-                    StateHasChanged();
-                });
+                    _phaseSecondsLeft = null;
+                    _selectedMove = null;
+                }
+                StateHasChanged();
+            });
             });
 
             _hub.On<JsonElement>("RoundCompleted", payload =>
             {
                 return InvokeAsync(async () =>
+    {
+                ClearRevealOverlay();
+                _selectedMove = null;
+                if (TryRoundSummary(payload, out var line))
                 {
-                    ClearRevealOverlay();
-                    _selectedMove = null;
-                    if (TryRoundSummary(payload, out var line))
-                    {
-                        _lastRound = line;
-                        _roundHistory.Add(line);
-                    }
-                    StateHasChanged();
-                    await RefreshRoomUiCoreAsync();
-                });
+                    _lastRound = line;
+                    _roundHistory.Add(line);
+                }
+                StateHasChanged();
+                await RefreshRoomUiCoreAsync();
+            });
             });
 
             _hub.On<JsonElement>("MovesLocked", payload =>
@@ -496,24 +515,24 @@ else
                     return Task.CompletedTask;
 
                 return InvokeAsync(() =>
-                {
-                    _revealTickerCts?.Cancel();
-                    _revealTickerCts?.Dispose();
-                    _revealTickerCts = new CancellationTokenSource();
+    {
+                _revealTickerCts?.Cancel();
+                _revealTickerCts?.Dispose();
+                _revealTickerCts = new CancellationTokenSource();
 
-                    _revealMovesVisible = false;
-                    _revealP1Move = null;
-                    _revealP2Move = null;
-                    _revealP1Username = u1;
-                    _revealP2Username = u2;
-                    _revealEndsAtUtc = endsUtc;
-                    _revealVisible = true;
-                    _phaseSecondsLeft = null;
-                    _selectedMove = null;
+                _revealMovesVisible = false;
+                _revealP1Move = null;
+                _revealP2Move = null;
+                _revealP1Username = u1;
+                _revealP2Username = u2;
+                _revealEndsAtUtc = endsUtc;
+                _revealVisible = true;
+                _phaseSecondsLeft = null;
+                _selectedMove = null;
 
-                    _ = RunRevealTickerAsync(_revealTickerCts.Token);
-                    StateHasChanged();
-                });
+                _ = RunRevealTickerAsync(_revealTickerCts.Token);
+                StateHasChanged();
+            });
             });
 
             _hub.On<JsonElement>("MovesRevealed", payload =>
@@ -522,59 +541,59 @@ else
                     return Task.CompletedTask;
 
                 return InvokeAsync(() =>
-                {
-                    _revealP1Move = p1;
-                    _revealP2Move = p2;
-                    _revealP1Username = ru1;
-                    _revealP2Username = ru2;
-                    _revealMovesVisible = true;
-                    StateHasChanged();
-                });
+    {
+                _revealP1Move = p1;
+                _revealP2Move = p2;
+                _revealP1Username = ru1;
+                _revealP2Username = ru2;
+                _revealMovesVisible = true;
+                StateHasChanged();
+            });
             });
 
             _hub.On<JsonElement>("MoveSubmitted", _ => InvokeAsync(async () => await RefreshRoomUiCoreAsync()));
             _hub.On<JsonElement>("NextRound", _ =>
             {
                 return InvokeAsync(async () =>
-                {
-                    ClearRevealOverlay();
-                    _selectedMove = null;
-                    StateHasChanged();
-                    await RefreshRoomUiCoreAsync();
-                });
+    {
+                ClearRevealOverlay();
+                _selectedMove = null;
+                StateHasChanged();
+                await RefreshRoomUiCoreAsync();
+            });
             });
             _hub.On<JsonElement>("PlayerReadyChanged", _ => InvokeAsync(async () => await RefreshRoomUiCoreAsync()));
             _hub.On<JsonElement>("BothPlayersReady", _ =>
             {
                 return InvokeAsync(async () =>
-                {
-                    _toast = "Cả hai đã sẵn sàng — chủ phòng có thể bắt đầu.";
-                    await RefreshRoomUiCoreAsync();
-                });
+    {
+                _toast = "Cả hai đã sẵn sàng — chủ phòng có thể bắt đầu.";
+                await RefreshRoomUiCoreAsync();
+            });
             });
             _hub.On<JsonElement>("GameEnded", payload =>
             {
                 return InvokeAsync(async () =>
+    {
+                ClearRevealOverlay();
+                _phaseSecondsLeft = null;
+                _selectedMove = null;
+                _showRoundInfo = false;
+                if (TryGameEndedWinner(payload, out var winnerName) && !string.IsNullOrWhiteSpace(winnerName))
                 {
-                    ClearRevealOverlay();
-                    _phaseSecondsLeft = null;
-                    _selectedMove = null;
-                    _showRoundInfo = false;
-                    if (TryGameEndedWinner(payload, out var winnerName) && !string.IsNullOrWhiteSpace(winnerName))
-                    {
-                        _gameWinnerDisplay = winnerName.Trim();
-                        _winnerPanelVisible = true;
-                        _toast = null;
-                    }
-                    else
-                    {
-                        _gameWinnerDisplay = "";
-                        _winnerPanelVisible = false;
-                        _toast = "Trận đấu kết thúc.";
-                    }
-                    StateHasChanged();
-                    await RefreshRoomUiCoreAsync();
-                });
+                    _gameWinnerDisplay = winnerName.Trim();
+                    _winnerPanelVisible = true;
+                    _toast = null;
+                }
+                else
+                {
+                    _gameWinnerDisplay = "";
+                    _winnerPanelVisible = false;
+                    _toast = "Trận đấu kết thúc.";
+                }
+                StateHasChanged();
+                await RefreshRoomUiCoreAsync();
+            });
             });
 
             await _hub.StartAsync();
@@ -707,10 +726,10 @@ else
     }
 
     private static bool IsCountdownPhase(string? phaseOrTimerType) =>
-        phaseOrTimerType != null
-        && (phaseOrTimerType.Equals("betting_phase", StringComparison.OrdinalIgnoreCase)
-            || phaseOrTimerType.Equals("battle_start", StringComparison.OrdinalIgnoreCase)
-            || phaseOrTimerType.Equals("round_active", StringComparison.OrdinalIgnoreCase));
+    phaseOrTimerType != null
+    && (phaseOrTimerType.Equals("betting_phase", StringComparison.OrdinalIgnoreCase)
+    || phaseOrTimerType.Equals("battle_start", StringComparison.OrdinalIgnoreCase)
+    || phaseOrTimerType.Equals("round_active", StringComparison.OrdinalIgnoreCase));
 
     private static int DefaultSecondsForPhase(string? phaseOrTimerType) => phaseOrTimerType?.ToLowerInvariant() switch
     {
@@ -721,20 +740,20 @@ else
     };
 
     private static bool IsRoundInfoPhase(string? phase) =>
-        phase != null
-        && (phase.Equals("betting_phase", StringComparison.OrdinalIgnoreCase)
-            || phase.Equals("battle_start", StringComparison.OrdinalIgnoreCase)
-            || phase.Equals("round_active", StringComparison.OrdinalIgnoreCase)
-            || phase.Equals("reveal_countdown", StringComparison.OrdinalIgnoreCase)
-            || phase.Equals("round_result", StringComparison.OrdinalIgnoreCase)
-            || phase.Equals("result_phase", StringComparison.OrdinalIgnoreCase));
+    phase != null
+    && (phase.Equals("betting_phase", StringComparison.OrdinalIgnoreCase)
+    || phase.Equals("battle_start", StringComparison.OrdinalIgnoreCase)
+    || phase.Equals("round_active", StringComparison.OrdinalIgnoreCase)
+    || phase.Equals("reveal_countdown", StringComparison.OrdinalIgnoreCase)
+    || phase.Equals("round_result", StringComparison.OrdinalIgnoreCase)
+    || phase.Equals("result_phase", StringComparison.OrdinalIgnoreCase));
 
     private string MoveButtonClass(string move)
     {
         var selected = string.Equals(_selectedMove, move, StringComparison.OrdinalIgnoreCase);
         return selected
-            ? "btn rps-play-move rps-play-move--icon rps-play-move--selected"
-            : "btn rps-play-move rps-play-move--icon";
+        ? "btn rps-play-move rps-play-move--icon rps-play-move--selected"
+        : "btn rps-play-move rps-play-move--icon";
     }
 
     private async Task RunRevealTickerAsync(CancellationToken ct)
@@ -776,12 +795,32 @@ else
         line = "";
         if (!root.TryGetProperty("data", out var d))
             return false;
+
         var p1 = d.TryGetProperty("player1Move", out var a) ? a.GetString() : null;
         var p2 = d.TryGetProperty("player2Move", out var b) ? b.GetString() : null;
         var u1 = d.TryGetProperty("player1Username", out var x) ? x.GetString() : "?";
         var u2 = d.TryGetProperty("player2Username", out var y) ? y.GetString() : "?";
-        var res = d.TryGetProperty("result", out var r) ? r.GetString() : "";
-        line = $"{u1} ({p1}) vs {u2} ({p2}) → {res}";
+        var res = d.TryGetProperty("result", out var r) ? r.GetString() ?? "" : "";
+
+        string verdict;
+        if (string.Equals(res, "tie", StringComparison.OrdinalIgnoreCase))
+        {
+            verdict = "Hòa";
+        }
+        else if (string.Equals(res, "player1_wins", StringComparison.OrdinalIgnoreCase))
+        {
+            verdict = $"{u1} thắng";
+        }
+        else if (string.Equals(res, "player2_wins", StringComparison.OrdinalIgnoreCase))
+        {
+            verdict = $"{u2} thắng";
+        }
+        else
+        {
+            verdict = res;
+        }
+
+        line = $"{u1} ({p1}) vs {u2} ({p2}) · {verdict}";
         return true;
     }
 
