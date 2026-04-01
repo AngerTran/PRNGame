@@ -146,6 +146,16 @@ else
     private static readonly decimal[] _stakes = { 25m, 50m, 100m, 150m };
     private string? _poolSummary;
 
+    private BettingPoolUi? _pool;
+    private CancellationTokenSource? _watchLoopCts;
+    private string? _lockedBetPlayerId;
+
+    private bool _myBetPanelVisible;
+    private decimal _myBetAmount;
+    private decimal _myBetPayout;
+    private decimal _myBetDelta;
+    private long _currentPoints;
+
     private string? P1Id => _room?.Player1?.UserId;
     private string? P2Id => _room?.Player2?.UserId;
     private string P1Name => _room?.Player1?.Username ?? "—";
@@ -350,5 +360,27 @@ else
             _busy = false;
             StateHasChanged();
         }
+    }
+
+    private bool IsBetButtonDisabled(string? playerId) =>
+        _busy || playerId == null || _lockedBetPlayerId != null;
+
+    private string GetBetButtonClass(string? playerId)
+    {
+        if (_lockedBetPlayerId == null || playerId == null)
+            return "btn-success";
+        return _lockedBetPlayerId == playerId ? "btn-success active" : "btn-outline-success";
+    }
+
+    private sealed class BettingPoolUi
+    {
+        public decimal TotalPool { get; set; }
+        public int TotalBets { get; set; }
+        public decimal Player1Total { get; set; }
+        public decimal Player2Total { get; set; }
+        public decimal Player1Percentage { get; set; }
+        public decimal Player2Percentage { get; set; }
+        public decimal Player1PotentialProfit { get; set; }
+        public decimal Player2PotentialProfit { get; set; }
     }
 }
