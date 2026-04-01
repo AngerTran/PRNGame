@@ -1,5 +1,6 @@
 @page "/watch/{RoomId}"
 @rendermode InteractiveServer
+@implements IAsyncDisposable
 @using System.Text.Json
 @using Rock_Paper_Scissors_Online.DTOs
 @inject GameApiService Api
@@ -37,6 +38,19 @@ else
         @if (!string.IsNullOrEmpty(_toast))
         {
             <div class="alert alert-info py-2 small">@_toast</div>
+        }
+
+        @if (_myBetPanelVisible)
+        {
+            <div class="alert @( _myBetDelta >= 0 ? "alert-success" : "alert-secondary" ) py-2 small mb-3">
+                <div class="fw-semibold mb-1">Kết quả cược của bạn</div>
+                <div>
+                    Cược @(_myBetAmount.ToString("N0")) xu ·
+                    @( _myBetDelta >= 0 ? "Lãi" : "Lỗ" )
+                    @Math.Abs(_myBetDelta).ToString("N0") xu ·
+                    Tổng điểm hiện tại: <strong>@_currentPoints.ToString("N0") xu</strong>
+                </div>
+            </div>
         }
 
         @if (_room == null)
@@ -167,6 +181,13 @@ else
     private decimal _selectedStake = 50;
     private static readonly decimal[] _stakes = { 25m, 50m, 100m, 150m };
     private BettingPoolUi? _pool;
+    private CancellationTokenSource? _watchLoopCts;
+
+    private bool _myBetPanelVisible;
+    private decimal _myBetAmount;
+    private decimal _myBetPayout;
+    private decimal _myBetDelta;
+    private long _currentPoints;
 
     private string? P1Id => _room?.Player1?.UserId;
     private string? P2Id => _room?.Player2?.UserId;
@@ -219,6 +240,10 @@ else
         _ready = true;
         if (_room != null && ShouldShowBettingUi(_room))
             _ = RefreshPoolQuietAsync();
+
+        if (_room != null)
+            StartWatchLoop();
+
         StateHasChanged();
     }
 
@@ -254,6 +279,84 @@ else
         {
             _pool = null;
         }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void StartWatchLoop()
+    {
+        _watchLoopCts?.Cancel();
+        _watchLoopCts?.Dispose();
+        _watchLoopCts = new CancellationTokenSource();
+        var token = _watchLoopCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (!token.IsCancellationRequested)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(3), token);
+                    if (token.IsCancellationRequested)
+                        break;
+
+                    var (okRoom, room, _) = await Api.GetRoomAsync(RoomId);
+                    if (!okRoom || room == null)
+                        continue;
+
+                    if (string.Equals(room.Status, "Finished", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(room.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+                    {
+                        await LoadMyBetResultAsync();
+                        break;
+                    }
+                }
+            }
+            catch (TaskCanceledException)
+            {
+                // ignore
+            }
+        }, token);
+    }
+
+    private async Task LoadMyBetResultAsync()
+    {
+        if (_session == null)
+            return;
+
+        // Lấy lịch sử cược của chính user
+        var (okBets, data, _) = await Api.BettingGetMyBetsAsync();
+        if (okBets && data is JsonElement el)
+        {
+            BetResponseDto? bet = null;
+
+            if (el.TryGetProperty("completedBets", out var completed) && completed.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in completed.EnumerateArray())
+                {
+                    var b = JsonSerializer.Deserialize<BetResponseDto>(item.GetRawText(),
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    if (b != null && string.Equals(b.GameId, RoomId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        bet = b;
+                        break;
+                    }
+                }
+            }
+
+            if (bet != null)
+            {
+                _myBetAmount = bet.Amount;
+                _myBetPayout = bet.Payout ?? 0;
+                _myBetDelta = _myBetPayout - _myBetAmount;
+                _myBetPanelVisible = true;
+            }
+        }
+
+        // Lấy lại tổng điểm hiện tại
+        var (okPts, pts, _) = await Api.GetCurrentPointsAsync();
+        if (okPts)
+            _currentPoints = pts;
 
         await InvokeAsync(StateHasChanged);
     }
@@ -301,5 +404,12 @@ else
         public decimal Player2Percentage { get; set; }
         public decimal Player1PotentialProfit { get; set; }
         public decimal Player2PotentialProfit { get; set; }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        _watchLoopCts?.Cancel();
+        _watchLoopCts?.Dispose();
+        return ValueTask.CompletedTask;
     }
 }
