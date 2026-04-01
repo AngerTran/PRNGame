@@ -248,7 +248,6 @@
     private OnlinePlayersResponse? _searchStats;
     private string _playerGuid = "";
     private DetailedPlayerStatsDto? _detail;
-    private string? _rawDetail;
     private string? _errDetail;
 
     private enum OnlineListSource { None, PlayerStats, Legacy }
@@ -531,7 +530,6 @@
     {
         ClearToasts();
         _errDetail = null;
-        _rawDetail = null;
         _detail = null;
         if (_session == null)
         {

@@ -47,9 +47,9 @@ else
         {
             <p class="text-muted">Phòng này không bật cược.</p>
         }
-        else if (!IsMatchLive(_room))
+        else if (!ShouldShowBettingUi(_room))
         {
-            <p class="text-muted">Chỉ cược khi trận đang diễn ra (hai người chơi và trạng thái đấu).</p>
+            <p class="text-muted">Chỉ hiện chọn mức cược khi phòng có 2 người chơi và cả hai đã sẵn sàng.</p>
             <p class="small">Trạng thái hiện tại: <strong>@_room.Status</strong> · Người chơi: @_room.CurrentPlayers/@_room.MaxPlayers</p>
         }
         else
@@ -139,13 +139,21 @@ else
     private int ScoreP1 => _room?.PlayerScores?.GetValueOrDefault(P1Id ?? "", 0) ?? 0;
     private int ScoreP2 => _room?.PlayerScores?.GetValueOrDefault(P2Id ?? "", 0) ?? 0;
 
-    private static bool IsMatchLive(RoomResponseDto r)
+    private static bool ShouldShowBettingUi(RoomResponseDto r)
     {
         if (r.CurrentPlayers < 2 || r.Player1 == null || r.Player2 == null)
             return false;
-        var st = r.Status ?? "";
-        return st.Equals("Playing", StringComparison.OrdinalIgnoreCase)
-               || st.Equals("InProgress", StringComparison.OrdinalIgnoreCase);
+
+        var status = (r.Status ?? "").Trim().ToLowerInvariant();
+        var bothReady = r.Player1.IsReady && r.Player2.IsReady;
+
+        // Hiện UI cược khi:
+        // - Phòng đang chờ (waiting) nhưng đủ 2 người và cả hai đã sẵn sàng
+        // - Hoặc trận đã bắt đầu (playing/inprogress) để người xem tiếp tục theo dõi pool
+        if (status == "waiting")
+            return bothReady;
+
+        return status == "playing" || status == "inprogress";
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -172,7 +180,7 @@ else
             _room = room;
 
         _ready = true;
-        if (_room != null && IsMatchLive(_room))
+        if (_room != null && ShouldShowBettingUi(_room))
             _ = RefreshPoolQuietAsync();
         StateHasChanged();
     }
