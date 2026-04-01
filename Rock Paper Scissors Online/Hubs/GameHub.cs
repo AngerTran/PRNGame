@@ -1972,152 +1972,10 @@ namespace Rock_Paper_Scissors_Online.Hubs
                         var winnerId = RpsMatchRules.ResolveWinnerUserId(
                             GameRoom.Player1!.UserId, GameRoom.Player2!.UserId, player1Score, player2Score, winner);
 
-                        // Trigger final round animation sequence before ending game
                         _ = Task.Run(async () => {
                             try
                             {
-                                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Starting final round animation sequence");
-
-                                // Capture values we need to avoid disposed context issues
-                                var capturedPlayer1Move = player1Move;
-                                var capturedPlayer2Move = player2Move;
-                                var capturedResult = result;
-                                var capturedWinner = winner;
-                                var capturedPlayer1Score = player1Score;
-                                var capturedPlayer2Score = player2Score;
                                 var capturedServiceScopeFactory = _staticServiceScopeFactory;
-
-                                // Trigger animation sequence from backend after short delay
-                                await Task.Delay(600);
-                                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Starting animation sequence");
-                                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Trigger animation");
-                                // Trigger swing animation
-                                await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
-                                {
-                                    success = true,
-                                    animationType = "swing",
-                                    roomId = roomId,
-                                    data = new
-                                    {
-                                        player1Move = player1Move,
-                                        player2Move = player2Move,
-                                        result = result,
-                                        winner = winner
-                                    },
-                                    timestamp = DateTime.UtcNow
-                                });
-                                await Task.Delay(600);
-                                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Starting animation sequence");
-                                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Trigger animation");
-                                // Trigger swing animation
-                                await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
-                                {
-                                    success = true,
-                                    animationType = "swing",
-                                    roomId = roomId,
-                                    data = new
-                                    {
-                                        player1Move = player1Move,
-                                        player2Move = player2Move,
-                                        result = result,
-                                        winner = winner
-                                    },
-                                    timestamp = DateTime.UtcNow
-                                });
-
-                                // Trigger thrown animation
-                                await Task.Delay(700);
-                                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Triggering thrown animation");
-                                await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
-                                {
-                                    success = true,
-                                    animationType = "thrown",
-                                    roomId = roomId,
-                                    data = new
-                                    {
-                                        player1Move = capturedPlayer1Move,
-                                        player2Move = capturedPlayer2Move
-                                    },
-                                    timestamp = DateTime.UtcNow
-                                });
-
-                                // Trigger reveal animation quickly
-                                await Task.Delay(300);
-                                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Triggering reveal animation");
-                                await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
-                                {
-                                    success = true,
-                                    animationType = "reveal",
-                                    roomId = roomId,
-                                    data = new
-                                    {
-                                        player1Move = player1Move,
-                                        player2Move = player2Move,
-                                        result = result,
-                                        winner = winner
-                                    },
-                                    timestamp = DateTime.UtcNow
-                                });
-
-                                await Task.Delay(500);
-                                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Triggering idle_reveal state");
-                                await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
-                                {
-                                    success = true,
-                                    animationType = "idle_reveal",
-                                    roomId = roomId,
-                                    data = new
-                                    {
-                                        message = "Hands staying in revealed position"
-                                    },
-                                    timestamp = DateTime.UtcNow
-                                });
-
-                                // Trigger winner announcement shortly after
-                                await Task.Delay(400);
-                                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Triggering winner announcement");
-                                await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
-                                {
-                                    success = true,
-                                    animationType = "winner_announcement",
-                                    roomId = roomId,
-                                    data = new
-                                    {
-                                        player1Move = player1Move,
-                                        player2Move = player2Move,
-                                        player1Username = GameRoom.Player1!?.Username,
-                                        player2Username = GameRoom.Player2!?.Username,
-                                        winner = winner,
-                                        winnerId = winnerId,
-                                        result = result,
-                                        player1Score = capturedPlayer1Score,
-                                        player2Score = capturedPlayer2Score,
-                                        isDraw = winner == "tie"
-                                    },
-                                    timestamp = DateTime.UtcNow
-                                });
-
-                                // Trigger game completion announcement soon after
-                                await Task.Delay(800);
-                                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Triggering game completion announcement");
-                                await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
-                                {
-                                    success = true,
-                                    animationType = "game_complete",
-                                    roomId = roomId,
-                                    data = new
-                                    {
-                                        winner = winner,
-                                        winnerId = winnerId,
-                                        winnerUsername = winnerId == GameRoom.Player1!.UserId ? GameRoom.Player1!.Username : GameRoom.Player2!.Username,
-                                        finalScores = GameRoom.PlayerScores,
-                                        totalRounds = GameRoom.CurrentRound
-                                    },
-                                    timestamp = DateTime.UtcNow
-                                });
-
-                                // Wait briefly for final announcement, then show result phase
-                                await Task.Delay(1200);
                                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Processing points and showing result phase");
 
                                 // Process point transactions in database
@@ -2176,7 +2034,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
 
                                 var actualRoundsPlayed = GameRoom.CurrentRound;
 
-                                // Send result phase data to frontend
+                                // Send result phase data to frontend ngay lập tức
                                 await _hubContext.Clients.Group(roomId).SendAsync("ShowResultPhase", new
                                 {
                                     success = true,
@@ -2202,8 +2060,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                 // Transition to result phase
                                 await SendPhaseChangedAsync(roomId, "result_phase");
 
-                                // Wait a short time before ending the game
-                                await Task.Delay(1000);
+                                // Kết thúc game gần như ngay lập tức sau khi gửi result_phase
                                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Ending game after result phase");
                                 await EndGameStatic(roomId, winnerId, GameRoom);
                             }
@@ -2217,158 +2074,14 @@ namespace Rock_Paper_Scissors_Online.Hubs
                     }
                     else
                     {
-                        // Reset choices for next round
+                        // Reset choices cho ván tiếp theo và chuyển ngay sang round_active
                         GameRoom.Player1!.CurrentChoice = null;
                         GameRoom.Player2!.CurrentChoice = null;
 
-                        // Trigger animation sequence from backend after short delay
-                        _ = Task.Run(async () =>
+                        var liveBest = Math.Max(1, GameRoom.BestOfRounds);
+                        if (!RpsMatchRules.IsMatchOver(liveBest, GameRoom.CurrentRound, player1Score, player2Score))
                         {
-                            // Capture values we need to avoid disposed context issues
-                            var capturedPlayer1Move = player1Move;
-                            var capturedPlayer2Move = player2Move;
-                            var capturedResult = result;
-                            var capturedWinner = winner;
-                            var capturedPlayer1Score = player1Score;
-                            var capturedPlayer2Score = player2Score;
-
-                            await Task.Delay(600);
-                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Starting animation sequence");
-                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Trigger animation");
-                            // Trigger swing animation
-                            await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
-                            {
-                                success = true,
-                                animationType = "swing",
-                                roomId = roomId,
-                                data = new
-                                {
-                                    player1Move = capturedPlayer1Move,
-                                    player2Move = capturedPlayer2Move,
-                                    result = capturedResult,
-                                    winner = capturedWinner
-                                },
-                                timestamp = DateTime.UtcNow
-                            });
-
-                            // Trigger thrown animation
-                            await Task.Delay(700);
-                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Triggering thrown animation");
-                            await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
-                            {
-                                success = true,
-                                animationType = "thrown",
-                                roomId = roomId,
-                                data = new
-                                {
-                                    player1Move = capturedPlayer1Move,
-                                    player2Move = capturedPlayer2Move
-                                },
-                                timestamp = DateTime.UtcNow
-                            });
-
-                            // Trigger reveal animation quickly
-                            await Task.Delay(300);
-                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Triggering reveal animation");
-                            await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
-                            {
-                                success = true,
-                                animationType = "reveal",
-                                roomId = roomId,
-                                data = new
-                                {
-                                    player1Move = player1Move,
-                                    player2Move = player2Move,
-                                    result = result,
-                                    winner = winner
-                                },
-                                timestamp = DateTime.UtcNow
-                            });
-
-                            await Task.Delay(500);
-                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Triggering idle_reveal state");
-                            await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
-                            {
-                                success = true,
-                                animationType = "idle_reveal",
-                                roomId = roomId,
-                                data = new
-                                {
-                                    message = "Hands staying in revealed position"
-                                },
-                                timestamp = DateTime.UtcNow
-                            });
-
-                            // Debug logging for winner announcement
-                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Triggering winner announcement");
-                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Winner announcement data:");
-                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Player1: {GameRoom.Player1!?.Username} (move: {player1Move})");
-                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Player2: {GameRoom.Player2!?.Username} (move: {player2Move})");
-                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Winner: {winner}, Result: {result}");
-
-                            await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
-                            {
-                                success = true,
-                                animationType = "announce_winner",
-                                roomId = roomId,
-                                data = new
-                                {
-                                    player1Move = player1Move,
-                                    player2Move = player2Move,
-                                    result = result,
-                                    winner = winner,
-                                    winnerId = winner,
-                                    player1Username = GameRoom.Player1!?.Username ?? "Player 1",
-                                    player2Username = GameRoom.Player2!?.Username ?? "Player 2",
-                                    player1Score = player1Score,
-                                    player2Score = player2Score,
-                                    isDraw = winner == "tie"
-                                },
-                                timestamp = DateTime.UtcNow
-                            });
-
-                            // Trigger new round announcement after winner announcement
-                            await Task.Delay(800);
-                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Triggering new round announcement");
-                            await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
-                            {
-                                success = true,
-                                animationType = "announce_new_round",
-                                roomId = roomId,
-                                data = new
-                                {
-                                    nextRoundNumber = GameRoom.CurrentRound + 1,
-                                    player1Score = player1Score,
-                                    player2Score = player2Score
-                                },
-                                timestamp = DateTime.UtcNow
-                            });
-
-                            // Wait briefly after "announce_new_round" before starting next round
-                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Waiting briefly after new round announcement before starting next round");
-                            await Task.Delay(800);
-
-                            if (_staticRoomService == null)
-                                return;
-                            if (IsGameCompleted(roomId))
-                                return;
-                            var live = await _staticRoomService.GetRoomAsync(roomId);
-                            if (live == null || live.Status != RoomStatus.Playing)
-                                return;
-                            var liveP1 = live.Player1!.UserId;
-                            var liveP2 = live.Player2!.UserId;
-                            var liveS1 = live.PlayerScores.GetValueOrDefault(liveP1, 0);
-                            var liveS2 = live.PlayerScores.GetValueOrDefault(liveP2, 0);
-                            var liveBest = Math.Max(1, live.BestOfRounds);
-                            if (RpsMatchRules.IsMatchOver(liveBest, live.CurrentRound, liveS1, liveS2))
-                            {
-                                Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Skip NextRound after animations — match already over for {roomId}");
-                                return;
-                            }
-
-                            // Notify next round and start the next round
-                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Starting next round after 2 second delay");
-                            var nextNum = live.CurrentRound + 1;
+                            var nextNum = GameRoom.CurrentRound + 1;
                             await _hubContext.Clients.Group(roomId).SendAsync("NextRound", new
                             {
                                 success = true,
@@ -2376,18 +2089,14 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                 data = new
                                 {
                                     roundNumber = nextNum,
-                                    player1Score = liveS1,
-                                    player2Score = liveS2
+                                    player1Score = player1Score,
+                                    player2Score = player2Score
                                 }
                             });
 
-                            // Send phase change to round_active
                             await SendPhaseChangedAsync(roomId, "round_active");
-
-                            // Start the next round timer
-                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} starting round_active timer ({RoundMoveSelectionSeconds} seconds)");
                             StartRoomTimerStatic(roomId, RoundMoveSelectionSeconds, "round_active");
-                        });
+                        }
                     }
                 }
             }
@@ -2545,8 +2254,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
             {
                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Starting GameRoom deletion process for GameRoom {roomId} after game end");
 
-                // Wait 10 seconds before deletion
-                await Task.Delay(10000);
+                // Wait 7 seconds before deletion
+                await Task.Delay(7000);
 
                 // Nếu sau 10s phòng đã bắt đầu trận mới thì không xóa nữa.
                 var latest = await _roomService.GetRoomAsync(roomId);
@@ -2556,18 +2265,18 @@ namespace Rock_Paper_Scissors_Online.Hubs
                     return;
                 }
 
-                // Warn all users that GameRoom deletion is happening soon
+                // Warn all users that GameRoom deletion is happening soon (3s)
                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Warning users about GameRoom deletion for GameRoom {roomId}");
                 await Clients.Group(roomId).SendAsync("RoomDeletionWarning", new
                 {
                     success = true,
-                    message = "GameRoom will be deleted in 5 seconds. You will be redirected to the lobby.",
+                    message = "GameRoom will be deleted in 3 seconds. You will be redirected to the lobby.",
                     roomId = roomId,
                     countdown = 5
                 });
 
-                // Wait 5 more seconds for warning
-                await Task.Delay(5000);
+                // Wait 3 more seconds for warning
+                await Task.Delay(3000);
 
                 // Note: Kickout message was already sent when game ended
                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Proceeding with GameRoom deletion for GameRoom {roomId}");
@@ -2633,24 +2342,24 @@ namespace Rock_Paper_Scissors_Online.Hubs
             {
                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Starting GameRoom deletion process for GameRoom {roomId} after game end (static)");
 
-                // Wait 10 seconds before deletion
-                await Task.Delay(10000);
+                // Wait 7 seconds before deletion
+                await Task.Delay(7000);
 
-                // Warn all users that GameRoom deletion is happening soon
+                // Warn all users that GameRoom deletion is happening soon (3s)
                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Warning users about GameRoom deletion for GameRoom {roomId} (static)");
                 if (_hubContext != null)
                 {
                     await _hubContext.Clients.Group(roomId).SendAsync("RoomDeletionWarning", new
                     {
                         success = true,
-                        message = "GameRoom will be deleted in 5 seconds. You will be redirected to the lobby.",
+                        message = "GameRoom will be deleted in 3 seconds. You will be redirected to the lobby.",
                         roomId = roomId,
                         countdown = 5
                     });
                 }
 
-                // Wait 5 more seconds for warning
-                await Task.Delay(5000);
+                // Wait 3 more seconds for warning
+                await Task.Delay(3000);
 
                 // Note: Kickout message was already sent when game ended
                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Proceeding with GameRoom deletion for GameRoom {roomId}");
