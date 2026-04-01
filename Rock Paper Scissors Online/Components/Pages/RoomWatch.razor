@@ -99,17 +99,54 @@ else
                     <button class="btn btn-success" type="button" disabled="@(_busy || P1Id == null)" @onclick="() => PlaceAsync(P1Id!)">
                         Cược @P1Name
                     </button>
-                    <button class="btn btn-success" type="button" disabled="@(_busy || P2Id == null)" @onclick="() => PlaceAsync(P2Id!)">
+                    <button class="btn btn-outline-success" type="button" disabled="@(_busy || P2Id == null)" @onclick="() => PlaceAsync(P2Id!)">
                         Cược @P2Name
                     </button>
                 </div>
-                <p class="small text-muted mt-2 mb-0">Mỗi tài khoản chỉ một lần cược mỗi trận trong phòng. Không được cược nếu bạn là người chơi trong phòng.</p>
+                <p class="small text-muted mt-2 mb-0">Mỗi tài khoản chỉ được đặt <strong>1 lần cược</strong> cho cả trận. Người đang thi đấu không được cược.</p>
             </section>
 
-            @if (!string.IsNullOrEmpty(_poolSummary))
+            @if (_pool != null)
             {
-                <section class="small font-monospace text-break border rounded p-2 bg-black bg-opacity-25">
-                    @_poolSummary
+                <section class="rps-watch-pool card border-0 bg-dark bg-opacity-50 text-light mb-0">
+                    <div class="card-body py-3">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                            <div>
+                                <div class="small text-muted text-uppercase mb-1">Tổng pool</div>
+                                <div class="fs-5 fw-semibold">@_pool.TotalPool.ToString("N0") xu</div>
+                                @if (_pool.TotalBets > 0)
+                                {
+                                    <div class="small text-muted">Số vé cược: @_pool.TotalBets</div>
+                                }
+                                else
+                                {
+                                    <div class="small text-muted">Chưa có ai cược, bạn sẽ là người đầu tiên.</div>
+                                }
+                            </div>
+                            <div class="rps-watch-pool-sides d-flex flex-column flex-md-row gap-3">
+                                <div class="rps-watch-pool-side">
+                                    <div class="small text-muted mb-1">Cược cho @P1Name</div>
+                                    <div class="fw-semibold">
+                                        @_pool.Player1Total.ToString("N0") xu
+                                        <span class="small text-muted">(@_pool.Player1Percentage.ToString("0")%)</span>
+                                    </div>
+                                    <div class="small text-success">
+                                        Lợi nhuận dự kiến: @_pool.Player1PotentialProfit.ToString("0")%
+                                    </div>
+                                </div>
+                                <div class="rps-watch-pool-side">
+                                    <div class="small text-muted mb-1">Cược cho @P2Name</div>
+                                    <div class="fw-semibold">
+                                        @_pool.Player2Total.ToString("N0") xu
+                                        <span class="small text-muted">(@_pool.Player2Percentage.ToString("0")%)</span>
+                                    </div>
+                                    <div class="small text-success">
+                                        Lợi nhuận dự kiến: @_pool.Player2PotentialProfit.ToString("0")%
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </section>
             }
         }
@@ -129,7 +166,7 @@ else
     private string _pin = "";
     private decimal _selectedStake = 50;
     private static readonly decimal[] _stakes = { 25m, 50m, 100m, 150m };
-    private string? _poolSummary;
+    private BettingPoolUi? _pool;
 
     private string? P1Id => _room?.Player1?.UserId;
     private string? P2Id => _room?.Player2?.UserId;
@@ -190,31 +227,35 @@ else
         var (ok, body, _) = await Api.BettingGetPoolAsync(RoomId);
         if (!ok || string.IsNullOrEmpty(body))
             return;
+
         try
         {
             using var doc = JsonDocument.Parse(body);
-            if (doc.RootElement.TryGetProperty("data", out var d))
-                _poolSummary = PrettyPool(d);
-            else
-                _poolSummary = body;
-        }
-        catch
-        {
-            _poolSummary = body;
-        }
-        await InvokeAsync(StateHasChanged);
-    }
+            if (!doc.RootElement.TryGetProperty("data", out var d))
+                d = doc.RootElement;
 
-    private static string PrettyPool(JsonElement data)
-    {
-        try
-        {
-            return JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+            _pool = new BettingPoolUi
+            {
+                TotalPool = d.TryGetProperty("totalPool", out var tp) ? tp.GetDecimal() : 0m,
+                TotalBets = d.TryGetProperty("totalBets", out var tb) ? tb.GetInt32() : 0,
+                Player1Total = d.TryGetProperty("player1Total", out var p1t) ? p1t.GetDecimal() : 0m,
+                Player2Total = d.TryGetProperty("player2Total", out var p2t) ? p2t.GetDecimal() : 0m,
+                Player1PotentialProfit = d.TryGetProperty("player1PotentialProfit", out var p1p) ? p1p.GetDecimal() : 0m,
+                Player2PotentialProfit = d.TryGetProperty("player2PotentialProfit", out var p2p) ? p2p.GetDecimal() : 0m,
+                Player1Percentage = d.TryGetProperty("bettingDistribution", out var dist) && dist.TryGetProperty("player1Percentage", out var p1perc)
+                    ? p1perc.GetDecimal()
+                    : 0m,
+                Player2Percentage = d.TryGetProperty("bettingDistribution", out dist) && dist.TryGetProperty("player2Percentage", out var p2perc)
+                    ? p2perc.GetDecimal()
+                    : 0m
+            };
         }
         catch
         {
-            return data.ToString();
+            _pool = null;
         }
+
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task PlaceAsync(string targetPlayerId)
@@ -248,5 +289,17 @@ else
             _busy = false;
             StateHasChanged();
         }
+    }
+
+    private sealed class BettingPoolUi
+    {
+        public decimal TotalPool { get; set; }
+        public int TotalBets { get; set; }
+        public decimal Player1Total { get; set; }
+        public decimal Player2Total { get; set; }
+        public decimal Player1Percentage { get; set; }
+        public decimal Player2Percentage { get; set; }
+        public decimal Player1PotentialProfit { get; set; }
+        public decimal Player2PotentialProfit { get; set; }
     }
 }

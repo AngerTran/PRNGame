@@ -168,5 +168,17 @@ namespace Rock_Paper_Scissors_Online.Controllers
         [HttpGet("allowed-stakes")]
         public IActionResult GetAllowedStakes() =>
             Ok(new { success = true, data = BettingService.AllowedBetStakes.OrderBy(x => x).ToList() });
+
+        /// <summary>Lịch sử cược của chính người dùng hiện tại.</summary>
+        [HttpGet("my-bets")]
+        public IActionResult GetMyBets()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized(new { success = false, message = "User not authenticated" });
+
+            var data = _bettingService.GetUserBets(userId);
+            return Ok(new { success = true, data });
+        }
     }
 }

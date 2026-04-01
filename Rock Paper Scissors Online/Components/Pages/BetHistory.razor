@@ -1,0 +1,164 @@
+@page "/me/bets"
+@rendermode InteractiveServer
+@inject GameApiService Api
+@inject AuthTokenStore Auth
+
+<PageTitle>Lịch sử cược</PageTitle>
+
+@if (!_ready)
+{
+    <p class="px-2">Đang tải…</p>
+}
+else if (_session == null)
+{
+    <p class="px-2 small">Vui lòng <a href="/login">đăng nhập</a> để xem lịch sử cược.</p>
+}
+else
+{
+    <div class="container py-3">
+        <h1 class="h4 mb-3">Lịch sử cược</h1>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="alert alert-danger py-2 small">@_error</div>
+        }
+
+        @if (_active.Count == 0 && _completed.Count == 0)
+        {
+            <p class="text-muted small mb-0">Bạn chưa có cược nào.</p>
+        }
+        else
+        {
+            @if (_active.Count > 0)
+            {
+                <section class="mb-4">
+                    <h2 class="h6 mb-2">Cược đang chờ kết quả</h2>
+                    <div class="table-responsive small">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Phòng</th>
+                                    <th>Số xu</th>
+                                    <th>Thời gian</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var b in _active)
+                                {
+                                    <tr>
+                                        <td><code>@b.GameId</code></td>
+                                        <td>@b.Amount.ToString("N0")</td>
+                                        <td>@b.Timestamp.ToLocalTime().ToString("g")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            }
+
+            @if (_completed.Count > 0)
+            {
+                <section>
+                    <h2 class="h6 mb-2">Cược đã kết thúc</h2>
+                    <div class="table-responsive small">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Phòng</th>
+                                    <th>Số xu đã cược</th>
+                                    <th>Xu nhận</th>
+                                    <th>Trạng thái</th>
+                                    <th>Thời gian</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var b in _completed)
+                                {
+                                    var win = string.Equals(b.Status, "won", StringComparison.OrdinalIgnoreCase)
+                                              || string.Equals(b.Status, "claimed", StringComparison.OrdinalIgnoreCase) && (b.Payout ?? 0) > 0;
+                                    <tr class="@(win ? "table-success" : "table-secondary")">
+                                        <td><code>@b.GameId</code></td>
+                                        <td>@b.Amount.ToString("N0")</td>
+                                        <td>@(b.Payout ?? 0).ToString("N0")</td>
+                                        <td>@b.Status</td>
+                                        <td>@b.Timestamp.ToLocalTime().ToString("g")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            }
+        }
+    </div>
+}
+
+@code {
+    private PortalAuthState? _session;
+    private bool _ready;
+    private string? _error;
+    private readonly List<BetResponseDto> _active = [];
+    private readonly List<BetResponseDto> _completed = [];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _session = await Auth.LoadAsync();
+        if (_session == null)
+        {
+            _ready = true;
+            StateHasChanged();
+            return;
+        }
+
+        var (ok, data, err) = await Api.BettingGetMyBetsAsync();
+        if (!ok || data is null)
+        {
+            _error = err ?? "Không tải được lịch sử cược.";
+            _ready = true;
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            if (data is JsonElement el)
+            {
+                ParseBetsElement(el);
+            }
+        }
+        catch
+        {
+            _error = "Định dạng dữ liệu lịch sử cược không hợp lệ.";
+        }
+
+        _ready = true;
+        StateHasChanged();
+    }
+
+    private void ParseBetsElement(JsonElement root)
+    {
+        if (root.TryGetProperty("activeBets", out var activeEl) && activeEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in activeEl.EnumerateArray())
+            {
+                var bet = JsonSerializer.Deserialize<BetResponseDto>(item.GetRawText(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (bet != null)
+                    _active.Add(bet);
+            }
+        }
+
+        if (root.TryGetProperty("completedBets", out var completedEl) && completedEl.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in completedEl.EnumerateArray())
+            {
+                var bet = JsonSerializer.Deserialize<BetResponseDto>(item.GetRawText(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (bet != null)
+                    _completed.Add(bet);
+            }
+        }
+    }
+}
+
