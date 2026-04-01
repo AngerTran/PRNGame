@@ -2155,7 +2155,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
         }
 
         /// <summary>
-        /// Static version of EndGame for use in static methods
+        /// Static version of EndGame cho các luồng xử lý nội bộ.
+        /// Toàn bộ payout BET đều xử lý ở BE, FE chỉ hiển thị.
         /// </summary>
         private static async Task EndGameStatic(string roomId, string winnerId, GameRoom GameRoom)
         {
@@ -2170,16 +2171,17 @@ namespace Rock_Paper_Scissors_Online.Hubs
                     return;
                 }
 
-                // Mark game as completed to prevent duplicate processing
+                // Đánh dấu game đã kết thúc để tránh xử lý trùng
                 MarkGameAsCompleted(roomId);
 
-                // Process payouts if betting is enabled
-                if (GameRoom.AllowBetting && _staticBettingService != null)
+                // Xử lý payout BET: luôn cố gắng settle bet nếu có service;
+                // bản thân ClaimWinnings sẽ tự xử lý trường hợp không có cược.
+                if (_staticBettingService != null)
                 {
                     try
                     {
-                        var payoutResult = _staticBettingService.ClaimWinnings(roomId, winnerId);
-                        Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Payouts processed: {payoutResult}");
+                        var payoutResult = await _staticBettingService.ClaimWinnings(roomId, winnerId);
+                        Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Payouts processed - Winnings: {payoutResult.Winnings}, TotalClaimed: {payoutResult.TotalClaimed}");
                     }
                     catch (Exception ex)
                     {
