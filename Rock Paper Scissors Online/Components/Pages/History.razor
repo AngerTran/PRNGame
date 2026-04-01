@@ -18,11 +18,10 @@ else
         <header class="rps-community-hero">
             <p class="rps-community-kicker"><i class="bi bi-clock-history" aria-hidden="true"></i> Lịch sử trận</p>
             <h1 class="rps-community-title">Lịch sử</h1>
-            <p class="text-muted small mb-0">Xem trận đã chơi và giao dịch điểm từ API.</p>
+            <p class="text-muted small mb-0">Xem lại các trận đã chơi và thay đổi điểm của tài khoản.</p>
         </header>
 
         <nav class="rps-hub-quicklinks" aria-label="Liên kết nhanh">
-            <a class="rps-hub-pill" href="/lobby"><i class="bi bi-door-open" aria-hidden="true"></i>Sảnh</a>
             <a class="rps-hub-pill" href="/lobby"><i class="bi bi-door-open" aria-hidden="true"></i>Sảnh</a>
         </nav>
 
@@ -61,7 +60,7 @@ else
                                 <td colspan="6" class="p-0 border-0">
                                     <p class="rps-history-empty mb-0">
                                         <strong>Chưa có trận nào</strong>
-                                        Vào sảnh để chơi — dữ liệu lấy từ API lịch sử trận.
+                                        Vào sảnh để tạo phòng và bắt đầu thi đấu.
                                     </p>
                                 </td>
                             </tr>
@@ -83,28 +82,17 @@ else
                     </tbody>
                 </table>
             </div>
-            <p class="rps-history-api-hint">
-                <i class="bi bi-link-45deg" aria-hidden="true"></i>
-                <span>GET <code class="mb-0">api/v1/match-history/&#123;userId&#125;</code></span>
-            </p>
         }
         else
         {
             <div class="rps-community-toolbar">
                 <button type="button" class="btn btn-sm btn-primary" @onclick="LoadTxAsync">Tải giao dịch điểm</button>
             </div>
-            @if (!_txRequested)
-            {
-                <p class="rps-history-empty">
-                    <strong>Chưa tải dữ liệu</strong>
-                    Nhấn nút trên để gọi API giao dịch điểm (trang 1, tối đa 50 bản ghi).
-                </p>
-            }
-            else if ((_tx?.Transactions?.Count ?? 0) == 0)
+            @if (_txRequested && (_tx?.Transactions?.Count ?? 0) == 0)
             {
                 <p class="rps-history-empty">
                     <strong>Không có giao dịch</strong>
-                    Không có bản ghi nào trong trang này hoặc không tải được — kiểm tra thông báo lỗi phía trên nếu có.
+                    Chưa có thay đổi điểm nào được ghi lại cho tài khoản này.
                 </p>
             }
             <div class="table-responsive rps-history-table-wrap">
@@ -128,10 +116,6 @@ else
                     </tbody>
                 </table>
             </div>
-            <p class="rps-history-api-hint">
-                <i class="bi bi-link-45deg" aria-hidden="true"></i>
-                <span>GET <code class="mb-0">api/v1/.../transactions</code></span>
-            </p>
         }
     </div>
 }
