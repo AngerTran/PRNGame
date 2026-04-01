@@ -2575,16 +2575,37 @@ namespace Rock_Paper_Scissors_Online.Hubs
                     return;
                 }
 
-                if (!BettingService.AllowedBetStakes.Contains(amount))
-                {
-                    await Clients.Caller.SendAsync("Error", $"Mức cược không hợp lệ. Chọn: {string.Join(", ", BettingService.AllowedBetStakes.OrderBy(x => x))}");
-                    return;
-                }
-
                 var GameRoom = await _roomService.GetRoomAsync(roomId);
                 if (GameRoom == null)
                 {
                     await Clients.Caller.SendAsync("Error", "GameRoom not found");
+                    return;
+                }
+
+                if (!GameRoom.AllowBetting)
+                {
+                    await Clients.Caller.SendAsync("Error", "Phòng này không bật chức năng cược.");
+                    return;
+                }
+
+                // Không cho cược thêm khi trận đã bắt đầu
+                if (GameRoom.Status == RoomStatus.Playing || GameRoom.Status == RoomStatus.InProgress)
+                {
+                    await Clients.Caller.SendAsync("Error", "Trận đấu đã bắt đầu, không thể đặt cược nữa.");
+                    return;
+                }
+
+                // Chỉ cho cược khi đủ 2 người chơi và cả hai đã sẵn sàng
+                if (GameRoom.Player1 == null || GameRoom.Player2 == null
+                    || !GameRoom.Player1.IsReady || !GameRoom.Player2.IsReady)
+                {
+                    await Clients.Caller.SendAsync("Error", "Chỉ được đặt cược khi phòng có đủ 2 người chơi và cả hai đã sẵn sàng.");
+                    return;
+                }
+
+                if (!BettingService.AllowedBetStakes.Contains(amount))
+                {
+                    await Clients.Caller.SendAsync("Error", $"Mức cược không hợp lệ. Chọn: {string.Join(", ", BettingService.AllowedBetStakes.OrderBy(x => x))}");
                     return;
                 }
 

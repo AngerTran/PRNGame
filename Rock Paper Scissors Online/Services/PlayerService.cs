@@ -181,5 +181,50 @@ namespace Rock_Paper_Scissors_Online.Services
                 return true;
             }
         }
+
+        public async Task<(bool Ok, PlayerInvitationDto? Invitation, string? RoomId, string? Error)> AcceptInvitationAndCreateRoomAsync(
+            string toPlayerId,
+            string inviteId,
+            int bestOfRounds = 3,
+            int pointsPerWin = 50)
+        {
+            if (!TryAcceptInvitation(toPlayerId, inviteId, out var invitation) || invitation == null)
+                return (false, null, null, "Không tìm thấy lời mời hoặc đã xử lý.");
+
+            try
+            {
+                // Lấy thông tin hai người chơi từ DB
+                var fromId = Guid.Parse(invitation.FromUserId);
+                var toId = Guid.Parse(invitation.ToUserId);
+
+                var fromUser = await _userRepository.GetByIdAsync(fromId);
+                var toUser = await _userRepository.GetByIdAsync(toId);
+                if (fromUser == null || toUser == null)
+                    return (false, invitation, null, "Không tìm thấy thông tin người chơi.");
+
+                // Tạo phòng mới: chủ phòng là người gửi lời mời
+                var roomName = $"{fromUser.Username} vs {toUser.Username}";
+                var room = await _roomService.CreateRoomAsync(
+                    roomName,
+                    bestOfRounds,
+                    pointsPerWin,
+                    fromUser.Id.ToString("D"),
+                    fromUser.Username,
+                    string.IsNullOrWhiteSpace(fromUser.DisplayName) ? fromUser.Username : fromUser.DisplayName,
+                    isPrivate: false,
+                    maxPlayers: 2,
+                    allowSpectators: true,
+                    allowBetting: true);
+
+                // Người nhận lời mời join vào phòng
+                await _roomService.JoinRoomAsync(room.Id, toUser.Id.ToString("D"), toUser.Username);
+
+                return (true, invitation, room.Id, null);
+            }
+            catch (Exception ex)
+            {
+                return (false, invitation, null, ex.Message);
+            }
+        }
     }
 }

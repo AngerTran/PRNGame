@@ -408,9 +408,16 @@ else
     {
         if (!r.AllowBetting || r.CurrentPlayers < 2 || r.Player1 == null || r.Player2 == null)
             return false;
-        var st = r.Status?.Trim() ?? "";
-        return st.Equals("Playing", StringComparison.OrdinalIgnoreCase)
-               || st.Equals("InProgress", StringComparison.OrdinalIgnoreCase);
+
+        var status = (r.Status ?? string.Empty).Trim().ToLowerInvariant();
+        var bothReady = r.Player1.IsReady && r.Player2.IsReady;
+
+        // Hiện phòng để xem/cược khi:
+        // - Chưa bấm bắt đầu: đủ 2 người và cả hai đã sẵn sàng (status thường là waiting)
+        // - Đã bấm bắt đầu (playing/inprogress): cho xem, nhưng BE sẽ chặn đặt cược thêm
+        return (status == "waiting" && bothReady)
+               || status == "playing"
+               || status == "inprogress";
     }
 
     private static string WatchHref(RoomResponseDto r) =>

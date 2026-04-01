@@ -128,20 +128,25 @@ namespace Rock_Paper_Scissors_Online.Controllers
 
         [Authorize]
         [HttpPost("me/invitations/{inviteId}/accept")]
-        public IActionResult AcceptInvitation(string inviteId)
+        public async Task<IActionResult> AcceptInvitation(string inviteId)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized();
 
-            if (!_playerService.TryAcceptInvitation(userId, inviteId, out var inv))
-                return NotFound(new { success = false, message = "Không tìm thấy lời mời hoặc đã xử lý" });
+            var (ok, inv, roomId, error) = await _playerService.AcceptInvitationAndCreateRoomAsync(userId, inviteId);
+            if (!ok || inv == null || string.IsNullOrEmpty(roomId))
+                return NotFound(new { success = false, message = error ?? "Không tìm thấy lời mời hoặc đã xử lý" });
 
             return Ok(new
             {
                 success = true,
                 message = "Bạn đã đồng ý thi đấu",
-                data = inv
+                data = new
+                {
+                    invitation = inv,
+                    roomId
+                }
             });
         }
 

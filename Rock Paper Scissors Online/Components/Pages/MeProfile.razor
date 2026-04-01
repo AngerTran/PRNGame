@@ -17,7 +17,7 @@ else if (_session == null)
     <div class="rps-community-shell">
         <header class="rps-community-hero">
             <p class="rps-community-kicker"><i class="bi bi-person-badge" aria-hidden="true"></i> Cộng đồng</p>
-            <h1 class="rps-community-title">Hồ sơ (Profile API)</h1>
+            <h1 class="rps-community-title">Hồ sơ người chơi</h1>
         </header>
         <p class="mb-0"><a href="/login">Đăng nhập</a></p>
     </div>
@@ -27,17 +27,16 @@ else
     <div class="rps-community-shell">
         <header class="rps-community-hero">
             <p class="rps-community-kicker"><i class="bi bi-person-badge" aria-hidden="true"></i> Cộng đồng</p>
-            <h1 class="rps-community-title">Hồ sơ (Profile API)</h1>
+            <h1 class="rps-community-title">Hồ sơ người chơi</h1>
         </header>
         <nav class="rps-hub-quicklinks" aria-label="Liên kết nhanh">
             <a class="rps-hub-pill" href="/lobby"><i class="bi bi-door-open" aria-hidden="true"></i>Sảnh</a>
         </nav>
 
         <ul class="nav nav-tabs mb-3 flex-wrap">
-            <li class="nav-item"><button type="button" class="nav-link @C(0)" @onclick='() => _t=0'>Tổng quan (tôi)</button></li>
+            <li class="nav-item"><button type="button" class="nav-link @C(0)" @onclick='() => _t=0'>Tổng quan</button></li>
+            <li class="nav-item"><button type="button" class="nav-link @C(2)" @onclick='() => _t=2'>Lịch sử trận</button></li>
             <li class="nav-item"><button type="button" class="nav-link @C(3)" @onclick='() => _t=3'>Hồ sơ người khác</button></li>
-            <li class="nav-item"><button type="button" class="nav-link @C(1)" @onclick='() => _t=1'>GET .../stats (raw)</button></li>
-            <li class="nav-item"><button type="button" class="nav-link @C(2)" @onclick='() => _t=2'>GET .../history</button></li>
         </ul>
 
         @if (_t == 0 && _profile != null)
@@ -62,7 +61,7 @@ else
         @if (_t == 2)
         {
             <div class="rps-community-toolbar">
-                <button type="button" class="btn btn-sm btn-primary" @onclick="LoadHistoryAsync">Tải history</button>
+                <button type="button" class="btn btn-sm btn-primary" @onclick="LoadHistoryAsync">Làm mới lịch sử</button>
             </div>
             <ul class="list-group small">
                 @foreach (var g in _hist?.RecentGames ?? new List<GameHistoryDto>())
@@ -70,14 +69,12 @@ else
                     <li class="list-group-item">@g.Opponent — @g.Result · @(g.PointsEarned >= 0 ? "+" : "")@g.PointsEarned điểm · @g.Timestamp.ToLocalTime():g</li>
                 }
             </ul>
-            <JsonApiResult Json="@_histRaw" Error="@_histErr" />
         }
 
         @if (_t == 3)
         {
-            <p class="small text-muted">Gọi <code>GET api/v1/profile/&#123;userId&#125;</code> với GUID người chơi khác.</p>
             <div class="input-group mb-3">
-                <input class="form-control" @bind="_otherGuid" placeholder="Guid người chơi" />
+                <input class="form-control" @bind="_otherGuid" placeholder="GUID người chơi (dành cho nâng cao)" />
                 <button type="button" class="btn btn-primary" @onclick="LoadOtherProfileAsync">Tải hồ sơ</button>
             </div>
             @if (!string.IsNullOrEmpty(_otherErr))

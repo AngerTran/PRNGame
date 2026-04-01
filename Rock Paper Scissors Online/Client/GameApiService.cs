@@ -598,21 +598,27 @@ public sealed class GameApiService : IDisposable
         return (true, wrapped.Data, null);
     }
 
-    public async Task<(bool Ok, PlayerInvitationDto? Invitation, string? Message, string? Error)> AcceptInvitationAsync(string inviteId)
+    public async Task<(bool Ok, PlayerInvitationDto? Invitation, string? RoomId, string? Message, string? Error)> AcceptInvitationAsync(string inviteId)
     {
         using var request = await CreateRequestAsync(HttpMethod.Post,
             $"api/v1/players/me/invitations/{Uri.EscapeDataString(inviteId)}/accept");
         using var response = await _http.SendAsync(request);
         var json = await response.Content.ReadAsStringAsync();
         if (!response.IsSuccessStatusCode)
-            return (false, null, null, TryParseMessage(json));
+            return (false, null, null, null, TryParseMessage(json));
 
         using var doc = JsonDocument.Parse(json);
         PlayerInvitationDto? inv = null;
-        if (doc.RootElement.TryGetProperty("data", out var dataEl) && dataEl.ValueKind != JsonValueKind.Null)
-            inv = JsonSerializer.Deserialize<PlayerInvitationDto>(dataEl.GetRawText(), JsonOptions);
+        string? roomId = null;
+        if (doc.RootElement.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == JsonValueKind.Object)
+        {
+            if (dataEl.TryGetProperty("invitation", out var invEl) && invEl.ValueKind != JsonValueKind.Null)
+                inv = JsonSerializer.Deserialize<PlayerInvitationDto>(invEl.GetRawText(), JsonOptions);
+            if (dataEl.TryGetProperty("roomId", out var roomEl) && roomEl.ValueKind == JsonValueKind.String)
+                roomId = roomEl.GetString();
+        }
         var msg = doc.RootElement.TryGetProperty("message", out var m) ? m.GetString() : null;
-        return (true, inv, msg, null);
+        return (true, inv, roomId, msg, null);
     }
 
     public async Task<(bool Ok, string? Message, string? Error)> DeclineInvitationAsync(string inviteId)
