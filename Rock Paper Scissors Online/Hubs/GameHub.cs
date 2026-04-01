@@ -39,9 +39,10 @@ namespace Rock_Paper_Scissors_Online.Hubs
         private static readonly ConcurrentDictionary<string, byte> _matchPayoutApplied = new();
         private static IHubContext<GameHub>? _hubContext;
 
-        private const int RoundMoveSelectionSeconds = 10;
-        private const int MoveRevealCountdownSeconds = 5;
-        private const int MovesRevealedPauseBeforeRoundMs = 250;
+        // 5 giây chọn nước đi, 3 giây chờ mở bài
+        private const int RoundMoveSelectionSeconds = 5;
+        private const int MoveRevealCountdownSeconds = 3;
+        private const int MovesRevealedPauseBeforeRoundMs = 150;
 
         // Static service references for timeout handling
         private static IRoomService? _staticRoomService;
@@ -1986,8 +1987,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                 var capturedPlayer2Score = player2Score;
                                 var capturedServiceScopeFactory = _staticServiceScopeFactory;
 
-                                // Trigger animation sequence from backend after 1.5 second delay
-                                await Task.Delay(1500); // 1.5 second delay
+                                // Trigger animation sequence from backend after short delay
+                                await Task.Delay(600);
                                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Starting animation sequence");
                                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Trigger animation");
                                 // Trigger swing animation
@@ -2005,7 +2006,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                     },
                                     timestamp = DateTime.UtcNow
                                 });
-                                await Task.Delay(1500); // 1.5 second delay
+                                await Task.Delay(600);
                                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Starting animation sequence");
                                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Trigger animation");
                                 // Trigger swing animation
@@ -2024,8 +2025,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                     timestamp = DateTime.UtcNow
                                 });
 
-                                // Trigger thrown animation after 2.8 seconds
-                                await Task.Delay(2800);
+                                // Trigger thrown animation
+                                await Task.Delay(700);
                                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Triggering thrown animation");
                                 await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
                                 {
@@ -2040,8 +2041,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                     timestamp = DateTime.UtcNow
                                 });
 
-                                // Trigger reveal animation after 0.8 seconds
-                                await Task.Delay(800);
+                                // Trigger reveal animation quickly
+                                await Task.Delay(300);
                                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Triggering reveal animation");
                                 await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
                                 {
@@ -2058,7 +2059,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                     timestamp = DateTime.UtcNow
                                 });
 
-                                await Task.Delay(1000);
+                                await Task.Delay(500);
                                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Triggering idle_reveal state");
                                 await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
                                 {
@@ -2072,8 +2073,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                     timestamp = DateTime.UtcNow
                                 });
 
-                                // Trigger winner announcement after 0.5 seconds
-                                await Task.Delay(500);
+                                // Trigger winner announcement shortly after
+                                await Task.Delay(400);
                                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Triggering winner announcement");
                                 await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
                                 {
@@ -2096,8 +2097,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                     timestamp = DateTime.UtcNow
                                 });
 
-                                // Trigger game completion announcement after 2 seconds
-                                await Task.Delay(2000);
+                                // Trigger game completion announcement soon after
+                                await Task.Delay(800);
                                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Triggering game completion announcement");
                                 await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
                                 {
@@ -2115,8 +2116,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                     timestamp = DateTime.UtcNow
                                 });
 
-                                // Wait 3 seconds for final announcement, then show result phase
-                                await Task.Delay(3000);
+                                // Wait briefly for final announcement, then show result phase
+                                await Task.Delay(1200);
                                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Processing points and showing result phase");
 
                                 // Process point transactions in database
@@ -2201,8 +2202,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                 // Transition to result phase
                                 await SendPhaseChangedAsync(roomId, "result_phase");
 
-                                // Wait 15 seconds before ending the game
-                                await Task.Delay(15000);
+                                // Wait a short time before ending the game
+                                await Task.Delay(1000);
                                 Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Ending game after result phase");
                                 await EndGameStatic(roomId, winnerId, GameRoom);
                             }
@@ -2220,7 +2221,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
                         GameRoom.Player1!.CurrentChoice = null;
                         GameRoom.Player2!.CurrentChoice = null;
 
-                        // Trigger animation sequence from backend after 1.5 second delay
+                        // Trigger animation sequence from backend after short delay
                         _ = Task.Run(async () =>
                         {
                             // Capture values we need to avoid disposed context issues
@@ -2231,7 +2232,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
                             var capturedPlayer1Score = player1Score;
                             var capturedPlayer2Score = player2Score;
 
-                            await Task.Delay(1500); // 1.5 second delay
+                            await Task.Delay(600);
                             Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Starting animation sequence");
                             Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Trigger animation");
                             // Trigger swing animation
@@ -2250,8 +2251,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                 timestamp = DateTime.UtcNow
                             });
 
-                            // Trigger thrown animation after 2.8 seconds
-                            await Task.Delay(2800);
+                            // Trigger thrown animation
+                            await Task.Delay(700);
                             Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Triggering thrown animation");
                             await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
                             {
@@ -2266,8 +2267,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                 timestamp = DateTime.UtcNow
                             });
 
-                            // Trigger reveal animation after 0.8 seconds
-                            await Task.Delay(800);
+                            // Trigger reveal animation quickly
+                            await Task.Delay(300);
                             Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Triggering reveal animation");
                             await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
                             {
@@ -2284,7 +2285,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                 timestamp = DateTime.UtcNow
                             });
 
-                            await Task.Delay(1000);
+                            await Task.Delay(500);
                             Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Triggering idle_reveal state");
                             await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
                             {
@@ -2326,8 +2327,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                 timestamp = DateTime.UtcNow
                             });
 
-                            // Trigger new round announcement after winner announcement (2 seconds)
-                            await Task.Delay(2000);
+                            // Trigger new round announcement after winner announcement
+                            await Task.Delay(800);
                             Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Triggering new round announcement");
                             await _hubContext.Clients.Group(roomId).SendAsync("AnimationTriggered", new
                             {
@@ -2343,10 +2344,9 @@ namespace Rock_Paper_Scissors_Online.Hubs
                                 timestamp = DateTime.UtcNow
                             });
 
-                            // Wait 2 seconds after "Triggering new round announcement" before starting next round
-                            // This ensures all animations complete before the new round begins
-                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Waiting 2 seconds after new round announcement before starting next round");
-                            await Task.Delay(2000); // 2 second delay after new round announcement
+                            // Wait briefly after "announce_new_round" before starting next round
+                            Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} - Waiting briefly after new round announcement before starting next round");
+                            await Task.Delay(800);
 
                             if (_staticRoomService == null)
                                 return;
