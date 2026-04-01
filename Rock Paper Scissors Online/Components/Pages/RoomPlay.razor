@@ -178,9 +178,17 @@ else
                             @if (string.Equals(_phase, "result_phase", StringComparison.OrdinalIgnoreCase)
                                                     || string.Equals(_room?.Status, "Finished", StringComparison.OrdinalIgnoreCase))
                             {
-                                <p class="small text-muted text-center mt-3 mb-0">
-                                    Hãy bấm <strong>Rời / Sảnh</strong> để quay lại sảnh và tạo phòng mới nếu muốn chơi tiếp.
-                                </p>
+                                <div class="rps-play-nexthint mt-3">
+                                    <div class="rps-play-nexthint-icon">
+                                        <i class="bi bi-trophy-fill" aria-hidden="true"></i>
+                                    </div>
+                                    <div class="rps-play-nexthint-text">
+                                        <div class="rps-play-nexthint-kicker">Trận đấu đã kết thúc</div>
+                                        <div class="rps-play-nexthint-body">
+                                            Hãy bấm <strong>Rời</strong> hoặc <strong>Sảnh</strong> để quay lại sảnh và tạo phòng mới nếu muốn chơi tiếp.
+                                        </div>
+                                    </div>
+                                </div>
                             }
                         </div>
                     </section>
@@ -820,9 +828,18 @@ else
             verdict = res;
         }
 
-        line = $"{u1} ({p1}) vs {u2} ({p2}) · {verdict}";
+        line = $"{u1} ({FormatMoveForHistory(p1)}) vs {u2} ({FormatMoveForHistory(p2)}) · {verdict}";
         return true;
     }
+
+    private static string FormatMoveForHistory(string? move) =>
+        move?.ToLowerInvariant() switch
+        {
+            "rock" => "búa",
+            "paper" => "bao",
+            "scissors" => "kéo",
+            _ => move ?? "—"
+        };
 
     private async Task SetReadyAsync(bool isReady)
     {

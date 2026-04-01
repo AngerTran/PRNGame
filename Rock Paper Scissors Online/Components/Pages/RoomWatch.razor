@@ -1,6 +1,7 @@
 @page "/watch/{RoomId}"
 @rendermode InteractiveServer
 @using System.Text.Json
+@using System.Linq
 @using Rock_Paper_Scissors_Online.DTOs
 @inject GameApiService Api
 @inject AuthTokenStore Auth
@@ -40,13 +41,37 @@ else
 
         @if (_myBetPanelVisible)
         {
-            <div class="alert @( _myBetDelta >= 0 ? "alert-success" : "alert-secondary" ) py-2 small mb-3">
-                <div class="fw-semibold mb-1">Kết quả cược của bạn</div>
-                <div>
-                    Cược @(_myBetAmount.ToString("N0")) xu ·
-                    @( _myBetDelta >= 0 ? "Lãi" : "Lỗ" )
-                    @Math.Abs(_myBetDelta).ToString("N0") xu ·
-                    Tổng điểm hiện tại: <strong>@_currentPoints.ToString("N0") xu</strong>
+            <div class="rps-bet-result-backdrop">
+                <div class="rps-bet-result-modal">
+                    <h2>Kết quả cược của bạn</h2>
+                    <p class="text-muted small mb-3">Trận đã kết thúc, đây là tổng kết xu của bạn.</p>
+                    <div class="rps-bet-summary mb-2">
+                        <div class="mb-1">
+                            <span class="text-muted">Đã đặt:</span>
+                            <strong> @(_myBetAmount.ToString("N0")) xu</strong>
+                        </div>
+                        <div class="mb-1">
+                            <span class="text-muted">Kết quả:</span>
+                            <strong class="@( _myBetDelta >= 0 ? "text-success" : "text-secondary" )">
+                                @( _myBetDelta >= 0 ? "Lãi" : "Lỗ" )
+                                @Math.Abs(_myBetDelta).ToString("N0") xu
+                            </strong>
+                        </div>
+                        <div>
+                            <span class="text-muted">Tổng điểm hiện tại:</span>
+                            <strong> @_currentPoints.ToString("N0") xu</strong>
+                        </div>
+                    </div>
+                    <div class="rps-bet-result-actions">
+                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                @onclick="() => _myBetPanelVisible = false">
+                            Đóng
+                        </button>
+                        <button type="button" class="btn btn-primary btn-sm"
+                                @onclick="OnViewBetHistory">
+                            Xem lịch sử cược
+                        </button>
+                    </div>
                 </div>
             </div>
         }
@@ -99,7 +124,9 @@ else
                     @foreach (var a in _stakes)
                     {
                         var active = _selectedStake == a;
-                        <button type="button" class="btn btn-sm @(active ? "btn-primary" : "btn-outline-primary")"
+                        <button type="button"
+                                class="btn btn-sm @(active ? "btn-primary" : "btn-outline-primary")"
+                                disabled="@(_lockedBetPlayerId != null)"
                                 @onclick="() => _selectedStake = a">@a</button>
                     }
                 </div>
@@ -114,7 +141,10 @@ else
                             @onclick="() => PlaceAsync(P1Id!)">
                         Cược @P1Name
                     </button>
-                    <button class="btn btn-success" type="button" disabled="@(_busy || P2Id == null)" @onclick="() => PlaceAsync(P2Id!)">
+                    <button class="btn rps-watch-bet-btn @(GetBetButtonClass(P2Id))"
+                            type="button"
+                            disabled="@IsBetButtonDisabled(P2Id)"
+                            @onclick="() => PlaceAsync(P2Id!)">
                         Cược @P2Name
                     </button>
                 </div>
@@ -271,8 +301,7 @@ else
                     if (!okRoom || room == null)
                         continue;
 
-                    if (string.Equals(room.Status, "Finished", StringComparison.OrdinalIgnoreCase)
-                        || string.Equals(room.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+                    if (ShouldTriggerBetResult(room))
                     {
                         await LoadMyBetResultAsync();
                         break;
@@ -284,6 +313,27 @@ else
                 // ignore
             }
         }, token);
+    }
+
+    private static bool ShouldTriggerBetResult(RoomResponseDto room)
+    {
+        var status = (room.Status ?? string.Empty).Trim().ToLowerInvariant();
+
+        // Trường hợp game đã kết thúc hoàn toàn.
+        if (status == "finished" || status == "completed")
+            return true;
+
+        // Gần cuối game: đã tới result_phase (điểm đã đủ để phân thắng thua).
+        // Khi đó Status bên server thường vẫn là InProgress, nên suy ra dựa trên điểm.
+        if (status == "inprogress" && room.BestOfRounds > 0 && room.PlayerScores != null)
+        {
+            var maxScore = room.PlayerScores.Values.DefaultIfEmpty(0).Max();
+            var neededToWin = (room.BestOfRounds / 2) + 1;
+            if (maxScore >= neededToWin)
+                return true;
+        }
+
+        return false;
     }
 
     private async Task LoadMyBetResultAsync()
@@ -362,14 +412,25 @@ else
         }
     }
 
+    private void OnViewBetHistory()
+    {
+        Nav.NavigateTo("/history/bets", forceLoad: true);
+    }
+
     private bool IsBetButtonDisabled(string? playerId) =>
         _busy || playerId == null || _lockedBetPlayerId != null;
 
     private string GetBetButtonClass(string? playerId)
     {
-        if (_lockedBetPlayerId == null || playerId == null)
-            return "btn-success";
-        return _lockedBetPlayerId == playerId ? "btn-success active" : "btn-outline-success";
+        if (playerId == null)
+            return string.Empty;
+
+        if (_lockedBetPlayerId == null)
+            return string.Empty;
+
+        return _lockedBetPlayerId == playerId
+            ? "rps-watch-bet-btn--chosen"
+            : "rps-watch-bet-btn--locked";
     }
 
     private sealed class BettingPoolUi
