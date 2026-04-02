@@ -335,15 +335,12 @@ namespace Rock_Paper_Scissors_Online.Services
                 return new ClaimResponseDto { Winnings = 0, TotalClaimed = _totalClaimed };
             }
 
-            // Get the 2 players in the game
-            var totalPool = bets.Sum(b => b.Amount);
-            var totalWinnerBets = bets
-                .Where(b => b.TargetPlayerId == winnerId)
-                .Sum(b => b.Amount);
-                
-            Console.WriteLine($"[BETTING AUDIT] Betting pool analysis - Total pool: {totalPool}, Winner bets: {totalWinnerBets}, Winner: {winnerId}");
+            // Thay đổi luật: nếu cược đúng, người thắng luôn được nhận x2 số xu đã cược
+            // (đã trừ xu khi đặt cược). Điều này đơn giản, dễ hiểu hơn cho người chơi
+            // so với chia pool theo tỉ lệ (parimutuel).
+            // Ví dụ: cược 50 xu, thắng nhận 100 xu → lãi ròng +50 xu.
 
-            // Settle all pending bets
+            // Settle all pending bets theo luật x2
             var pendingBets = bets.Where(b => b.Status == "pending").ToList();
             Console.WriteLine($"[BETTING AUDIT] Settling {pendingBets.Count} pending bets");
             
@@ -351,11 +348,10 @@ namespace Rock_Paper_Scissors_Online.Services
             {
                 if (bet.TargetPlayerId == winnerId)
                 {
-                    // Winner gets proportional share of total pool
-                    var share = totalWinnerBets > 0 ? (bet.Amount / totalWinnerBets) * totalPool : 0;
-                    bet.Payout = Math.Floor(share); // Round down to avoid fractional points
+                    // Người cược đúng: nhận x2 số xu đã cược
+                    bet.Payout = bet.Amount * 2;
                     bet.Status = "won";
-                    Console.WriteLine($"[BETTING AUDIT] Bet {bet.Id} WON - Player {bet.PlayerId} bet {bet.Amount} on winner, payout: {bet.Payout}");
+                    Console.WriteLine($"[BETTING AUDIT] Bet {bet.Id} WON - Player {bet.PlayerId} bet {bet.Amount} on winner, payout (x2): {bet.Payout}");
                 }
                 else
                 {
@@ -366,25 +362,7 @@ namespace Rock_Paper_Scissors_Online.Services
                 }
             }
 
-            // Admin gets any leftover amount (due to rounding down)
-            var distributed = bets.Where(b => b.Status == "won").Sum(b => b.Payout ?? 0);
-            var leftover = totalPool - distributed;
-
-            if (leftover > 0)
-            {
-                var adminBet = new Bet
-                {
-                    GameId = gameId,
-                    PlayerId = "ADMIN", // Admin account
-                    Amount = 0,
-                    Timestamp = DateTime.UtcNow,
-                    Status = "won",
-                    Payout = leftover
-                };
-                _bets.Add(adminBet);
-            }
-
-            // Process point transactions for all spectators
+            // Process point transactions cho tất cả khán giả
             var winningBets = bets.Where(b => b.TargetPlayerId == winnerId && b.Status == "won").ToList();
             var losingBets = bets.Where(b => b.TargetPlayerId != winnerId && b.Status == "lost").ToList();
             var totalWinnings = winningBets.Sum(b => b.Payout ?? 0);
