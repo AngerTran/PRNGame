@@ -29,6 +29,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
         private readonly IBettingService _bettingService;
         private readonly IPointTransactionService _pointTransactionService;
         private readonly ISessionManagementService _sessionManagementService;
+        private readonly IUserTrackerService _userTrackerService;
 
         // Static dictionary to track GameRoom timers
         private static readonly Dictionary<string, Timer> _roomTimers = new();
@@ -49,10 +50,9 @@ namespace Rock_Paper_Scissors_Online.Hubs
         private static IRoomService? _staticRoomService;
         private static IGameService? _staticGameService;
         private static IMapper? _staticMapper;
-        private static IPointTransactionService? _staticPointTransactionService;
         private static IServiceScopeFactory? _staticServiceScopeFactory;
 
-        public GameHub(IRoomService roomService, IMapper mapper, IRoomChatService roomChatService, IGameService gameService, IBettingService bettingService, IPointTransactionService pointTransactionService, IHubContext<GameHub> hubContext, ISessionManagementService sessionManagementService, IServiceScopeFactory serviceScopeFactory)
+        public GameHub(IRoomService roomService, IMapper mapper, IRoomChatService roomChatService, IGameService gameService, IBettingService bettingService, IPointTransactionService pointTransactionService, IHubContext<GameHub> hubContext, ISessionManagementService sessionManagementService, IUserTrackerService userTrackerService, IServiceScopeFactory serviceScopeFactory)
         {
             _roomService = roomService;
             _mapper = mapper;
@@ -62,6 +62,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
             _pointTransactionService = pointTransactionService;
             _hubContext = hubContext;
             _sessionManagementService = sessionManagementService;
+            _userTrackerService = userTrackerService;
 
             // Initialize static service references cho timer / background
             _staticRoomService = roomService;
@@ -392,29 +393,8 @@ namespace Rock_Paper_Scissors_Online.Hubs
 
                 if (!string.IsNullOrEmpty(userId))
                 {
-                    // Check if user is already logged in from another location
-                    var isAlreadyLoggedIn = await _sessionManagementService.IsUserLoggedInAsync(userId);
-                    if (isAlreadyLoggedIn)
-                    {
-                        Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m User {userId} is already logged in from another location - forcing logout of previous session");
-
-                        // Force logout previous sessions
-                        await _sessionManagementService.ForceLogoutUserAsync(userId);
-
-                        // Notify previous connections about forced logout
-                        var previousConnections = await _sessionManagementService.GetUserConnectionsAsync(userId);
-                        foreach (var connectionId in previousConnections)
-                        {
-                            await Clients.Client(connectionId).SendAsync("ForcedLogout", new
-                            {
-                                success = true,
-                                message = "You have been logged out because you logged in from another location.",
-                                reason = "duplicate_login"
-                            });
-                        }
-                    }
-
-                    // Register new session
+                    // Cho phép nhiều kết nối cùng user (sảnh + phòng / nhiều tab) — chỉ đăng ký thêm connectionId.
+                    await _userTrackerService.AddConnectionAsyns(userId, Context.ConnectionId);
                     await _sessionManagementService.RegisterUserSessionAsync(userId, Context.ConnectionId);
                 }
 
@@ -435,6 +415,7 @@ namespace Rock_Paper_Scissors_Online.Hubs
 
                 if (!string.IsNullOrEmpty(userId))
                 {
+                    await _userTrackerService.RemoveConnectionAsync(Context.ConnectionId);
                     // Unregister session
                     await _sessionManagementService.UnregisterUserSessionAsync(userId, Context.ConnectionId);
 

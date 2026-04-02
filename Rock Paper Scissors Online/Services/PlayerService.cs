@@ -7,23 +7,28 @@ namespace Rock_Paper_Scissors_Online.Services
 {
     public class PlayerService : IPlayerService
     {
-        private readonly IUserTrackerService _userTrackerService;
+        private readonly ISessionManagementService _sessionManagementService;
         private readonly IUserRepository _userRepository;
         private readonly IRoomService _roomService;
 
         private static readonly object InviteLock = new();
         private static readonly Dictionary<string, List<PlayerInvitationDto>> InvitesByToUser = new();
 
-        public PlayerService(IUserTrackerService userTrackerService, IUserRepository userRepository, IRoomService roomService)
+        public PlayerService(ISessionManagementService sessionManagementService, IUserRepository userRepository, IRoomService roomService)
         {
-            _userTrackerService = userTrackerService;
+            _sessionManagementService = sessionManagementService;
             _userRepository = userRepository;
             _roomService = roomService;
         }
 
         public async Task<OnlinePlayerDetailDto> GetOnlinePlayersAndStatsAsync()
         {
-            var onlinePlayersIds = (await _userTrackerService.GetOnlineUserId()).Select(Guid.Parse).ToList();
+            var activeUserIds = await _sessionManagementService.GetAllActiveUsersAsync();
+            var onlinePlayersIds = activeUserIds
+                .Where(id => Guid.TryParse(id, out _))
+                .Select(Guid.Parse)
+                .Distinct()
+                .ToList();
 
             var onlinePlayerList = new List<OnlinePlayerDetailDto>();
 

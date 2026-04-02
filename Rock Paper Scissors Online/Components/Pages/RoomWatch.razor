@@ -151,10 +151,13 @@ else
                 <p class="small text-muted mt-2 mb-0">Mỗi tài khoản chỉ được đặt <strong>1 lần cược</strong> cho cả trận. Người đang thi đấu không được cược.</p>
             </section>
 
-            @if (!string.IsNullOrEmpty(_poolSummary))
+            @if (_pool != null && _pool.TotalBets > 0)
             {
-                <section class="small font-monospace text-break border rounded p-2 bg-black bg-opacity-25">
-                    @_poolSummary
+                <section class="small border rounded p-3 bg-black bg-opacity-25 mb-0">
+                    <div class="text-muted mb-2">Pool cược</div>
+                    <div class="mb-1">Tổng pool: <strong>@_pool.TotalPool.ToString("N0")</strong> xu · @_pool.TotalBets cược</div>
+                    <div class="mb-1">@P1Name: <strong>@_pool.Player1Total.ToString("N0")</strong> xu (@_pool.Player1Percentage.ToString("N0")%)</div>
+                    <div>@P2Name: <strong>@_pool.Player2Total.ToString("N0")</strong> xu (@_pool.Player2Percentage.ToString("N0")%)</div>
                 </section>
             }
         }
@@ -174,7 +177,6 @@ else
     private string _pin = "";
     private decimal _selectedStake = 50;
     private static readonly decimal[] _stakes = { 25m, 50m, 100m, 150m };
-    private string? _poolSummary;
 
     private BettingPoolUi? _pool;
     private CancellationTokenSource? _watchLoopCts;

@@ -1,0 +1,69 @@
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@using Microsoft.AspNetCore.Http.Connections
+@inject AuthTokenStore Auth
+@inject NavigationManager Nav
+@inject ILogger<PresenceGameHubConnector> Log
+
+@* Kết nối gameHub khi đã đăng nhập để server đăng ký session (online) — không cần vào phòng.
+   Blazor Server: hub client chạy trên server, gọi lại URL public của app (Render / reverse proxy OK nếu ForwardedHeaders đúng). *@
+
+@code {
+    private HubConnection? _hub;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        if (_hub != null)
+            return;
+
+        var s = await Auth.LoadAsync();
+        if (s == null || string.IsNullOrWhiteSpace(s.AccessToken))
+            return;
+
+        try
+        {
+            var hubUri = Nav.ToAbsoluteUri($"/gameHub?access_token={Uri.EscapeDataString(s.AccessToken)}");
+            _hub = new HubConnectionBuilder()
+                .WithUrl(hubUri, options =>
+                {
+                    // Render / một số proxy: WebSocket có thể lỗi; LongPolling là dự phòng.
+                    options.Transports = HttpTransportType.WebSockets | HttpTransportType.LongPolling;
+                })
+                .WithAutomaticReconnect()
+                .Build();
+
+            await _hub.StartAsync();
+            Log.LogDebug("Presence gameHub connected ({Uri})", hubUri.GetLeftPart(UriPartial.Path));
+        }
+        catch (Exception ex)
+        {
+            Log.LogWarning(ex, "Presence gameHub start failed (online list có thể trống tới khi tải lại hoặc vào phòng).");
+            if (_hub != null)
+            {
+                try { await _hub.DisposeAsync(); } catch { /* ignore */ }
+                _hub = null;
+            }
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hub == null)
+            return;
+        try
+        {
+            await _hub.DisposeAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.LogDebug(ex, "Presence gameHub dispose");
+        }
+        finally
+        {
+            _hub = null;
+        }
+    }
+}
