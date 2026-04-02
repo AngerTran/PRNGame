@@ -319,21 +319,9 @@ else
     {
         var status = (room.Status ?? string.Empty).Trim().ToLowerInvariant();
 
-        // Trường hợp game đã kết thúc hoàn toàn.
-        if (status == "finished" || status == "completed")
-            return true;
-
-        // Gần cuối game: đã tới result_phase (điểm đã đủ để phân thắng thua).
-        // Khi đó Status bên server thường vẫn là InProgress, nên suy ra dựa trên điểm.
-        if (status == "inprogress" && room.BestOfRounds > 0 && room.PlayerScores != null)
-        {
-            var maxScore = room.PlayerScores.Values.DefaultIfEmpty(0).Max();
-            var neededToWin = (room.BestOfRounds / 2) + 1;
-            if (maxScore >= neededToWin)
-                return true;
-        }
-
-        return false;
+        // Chỉ trigger khi BE đã set trạng thái Finished/Completed,
+        // đảm bảo ClaimWinnings đã chạy xong trước khi FE hỏi kết quả cược.
+        return status == "finished" || status == "completed";
     }
 
     private async Task LoadMyBetResultAsync()

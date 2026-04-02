@@ -2189,6 +2189,21 @@ namespace Rock_Paper_Scissors_Online.Hubs
                     }
                 }
 
+                // Cập nhật trạng thái phòng sang Finished sau khi đã xử lý payout,
+                // để FE chỉ trigger panel kết quả khi mọi thứ đã settle xong.
+                if (_staticRoomService != null)
+                {
+                    try
+                    {
+                        await _staticRoomService.UpdateRoomStatusAsync(roomId, RoomStatus.Finished);
+                        Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m STATE TRANSITION: GameRoom {roomId} successfully set to Finished status (static end)");
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Error setting GameRoom {roomId} to Finished status (static end): {ex.Message}");
+                    }
+                }
+
                 // Stop all timers for this GameRoom
                 if (_roomTimers.ContainsKey(roomId))
                 {
