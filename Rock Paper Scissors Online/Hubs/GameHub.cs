@@ -44,10 +44,10 @@ namespace Rock_Paper_Scissors_Online.Hubs
         private const int MoveRevealCountdownSeconds = 3;
         private const int MovesRevealedPauseBeforeRoundMs = 150;
 
-        // Static service references for timeout handling
+        // Static service references cho các luồng nền (timer). Những service nào phụ thuộc DbContext
+        // (scoped) sẽ được resolve lại qua IServiceScopeFactory, không giữ static instance.
         private static IRoomService? _staticRoomService;
         private static IGameService? _staticGameService;
-        private static IBettingService? _staticBettingService;
         private static IMapper? _staticMapper;
         private static IPointTransactionService? _staticPointTransactionService;
         private static IServiceScopeFactory? _staticServiceScopeFactory;
@@ -63,12 +63,10 @@ namespace Rock_Paper_Scissors_Online.Hubs
             _hubContext = hubContext;
             _sessionManagementService = sessionManagementService;
 
-            // Initialize static service references for timeout handling
+            // Initialize static service references cho timer / background
             _staticRoomService = roomService;
             _staticGameService = gameService;
-            _staticBettingService = bettingService;
             _staticMapper = mapper;
-            _staticPointTransactionService = pointTransactionService;
             _staticServiceScopeFactory = serviceScopeFactory;
         }
 
@@ -2174,13 +2172,14 @@ namespace Rock_Paper_Scissors_Online.Hubs
                 // Đánh dấu game đã kết thúc để tránh xử lý trùng
                 MarkGameAsCompleted(roomId);
 
-                // Xử lý payout BET: luôn cố gắng settle bet nếu có service;
-                // bản thân ClaimWinnings sẽ tự xử lý trường hợp không có cược.
-                if (_staticBettingService != null)
+                // Xử lý payout BET: luôn resolve IBettingService qua scope mới để tránh giữ DbContext đã dispose.
+                if (_staticServiceScopeFactory != null)
                 {
                     try
                     {
-                        var payoutResult = await _staticBettingService.ClaimWinnings(roomId, winnerId);
+                        using var scope = _staticServiceScopeFactory.CreateScope();
+                        var bettingService = scope.ServiceProvider.GetRequiredService<IBettingService>();
+                        var payoutResult = await bettingService.ClaimWinnings(roomId, winnerId);
                         Console.WriteLine($"\u001b[36m[GAME HUB]\u001b[0m Payouts processed - Winnings: {payoutResult.Winnings}, TotalClaimed: {payoutResult.TotalClaimed}");
                     }
                     catch (Exception ex)
