@@ -141,8 +141,7 @@ else
                         <div class="rps-play-panel-h">Hành động</div>
                         <div class="rps-play-panel-b rps-play-panel-b--actions">
                             <div class="rps-play-actions">
-                                @if (string.Equals(_room?.Status, "Waiting", StringComparison.OrdinalIgnoreCase)
-                                                            || string.Equals(_room?.Status, "Finished", StringComparison.OrdinalIgnoreCase))
+                                @if (string.Equals(_room?.Status, "Waiting", StringComparison.OrdinalIgnoreCase))
                                 {
                                     @if (AmIReady)
                                     {
@@ -185,7 +184,7 @@ else
                                     <div class="rps-play-nexthint-text">
                                         <div class="rps-play-nexthint-kicker">Trận đấu đã kết thúc</div>
                                         <div class="rps-play-nexthint-body">
-                                            Hãy bấm <strong>Rời</strong> hoặc <strong>Sảnh</strong> để quay lại sảnh và tạo phòng mới nếu muốn chơi tiếp.
+                                            Hãy bấm <strong>Rời</strong> / <strong>Sảnh</strong> để quay lại sảnh và tạo phòng mới nếu muốn chơi tiếp.
                                         </div>
                                     </div>
                                 </div>

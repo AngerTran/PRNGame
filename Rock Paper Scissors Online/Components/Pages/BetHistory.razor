@@ -17,7 +17,17 @@ else if (_session == null)
 else
 {
     <div class="container py-3">
-        <h1 class="h4 mb-3">Lịch sử cược</h1>
+        <div class="rps-community-shell px-0">
+            <header class="rps-community-hero mb-3">
+                <p class="rps-community-kicker"><i class="bi bi-clock-history" aria-hidden="true"></i> Lịch sử cược</p>
+                <h1 class="rps-community-title mb-1">Lịch sử cược</h1>
+                <p class="text-muted small mb-0">Theo dõi các lần đặt cược và biến động xu của tài khoản.</p>
+            </header>
+
+            <nav class="rps-hub-quicklinks mb-3" aria-label="Liên kết nhanh">
+                <a class="rps-hub-pill" href="/lobby"><i class="bi bi-door-open" aria-hidden="true"></i>Sảnh</a>
+            </nav>
+        </div>
 
         @if (!string.IsNullOrEmpty(_error))
         {
@@ -33,27 +43,41 @@ else
             @if (_active.Count > 0)
             {
                 <section class="mb-4">
-                    <h2 class="h6 mb-2">Cược đang chờ kết quả</h2>
-                    <div class="table-responsive small">
-                        <table class="table table-sm align-middle mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Phòng</th>
-                                    <th>Số xu</th>
-                                    <th>Thời gian</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var b in _active)
-                                {
-                                    <tr>
-                                        <td><code>@b.GameId</code></td>
-                                        <td>@b.Amount.ToString("N0")</td>
-                                        <td>@b.Timestamp.ToLocalTime().ToString("g")</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
+                    <div class="card border-0 shadow-sm bg-dark text-light">
+                        <div class="card-header border-0 bg-transparent d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="small text-uppercase text-muted fw-semibold">Cược đang chờ kết quả</div>
+                                <div class="small text-muted mb-0">@_active.Count phiếu cược đang mở</div>
+                            </div>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="table-responsive small">
+                                <table class="table table-sm align-middle mb-0 table-dark table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Phòng</th>
+                                            <th>Số xu</th>
+                                            <th>Thời gian</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var b in _active)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <span class="badge rounded-pill bg-info text-dark"
+                                                          title="@b.GameId">
+                                                        @GetRoomDisplay(b.GameId)
+                                                    </span>
+                                                </td>
+                                                <td>@b.Amount.ToString("N0")</td>
+                                                <td>@b.Timestamp.ToLocalTime().ToString("g")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </section>
             }
@@ -61,47 +85,61 @@ else
             @if (_completed.Count > 0)
             {
                 <section>
-                    <h2 class="h6 mb-2">Cược đã kết thúc</h2>
-                    <div class="table-responsive small">
-                        <table class="table table-sm align-middle mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Phòng</th>
-                                    <th>Đã cược</th>
-                                    <th>Kết quả</th>
-                                    <th>Lãi / Lỗ</th>
-                                    <th>Thời gian</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var b in _completed)
-                                {
-                                    var payout = b.Payout ?? 0;
-                                    var delta = payout - b.Amount;
-                                    var win = delta > 0;
-                                    <tr class="@(win ? "table-success" : "table-secondary")">
-                                        <td><code>@b.GameId</code></td>
-                                        <td>@b.Amount.ToString("N0") xu</td>
-                                        <td>@payout.ToString("N0") xu</td>
-                                        <td>
-                                            @if (delta > 0)
-                                            {
-                                                <span class="text-success">+@delta.ToString("N0") xu</span>
-                                            }
-                                            else if (delta < 0)
-                                            {
-                                                <span class="text-danger">@delta.ToString("N0") xu</span>
-                                            }
-                                            else
-                                            {
-                                                <span class="text-muted">0 xu</span>
-                                            }
-                                        </td>
-                                        <td>@b.Timestamp.ToLocalTime().ToString("g")</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
+                    <div class="card border-0 shadow-sm bg-dark text-light">
+                        <div class="card-header border-0 bg-transparent d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="small text-uppercase text-muted fw-semibold">Cược đã kết thúc</div>
+                                <div class="small text-muted mb-0">@_completed.Count phiếu cược đã hoàn tất</div>
+                            </div>
+                        </div>
+                        <div class="card-body py-2">
+                            <div class="table-responsive small">
+                                <table class="table table-sm align-middle mb-0 table-dark table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Phòng</th>
+                                            <th>Đã cược</th>
+                                            <th>Kết quả</th>
+                                            <th>Lãi / Lỗ</th>
+                                            <th>Thời gian</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var b in _completed)
+                                        {
+                                            var payout = b.Payout ?? 0;
+                                            var delta = payout - b.Amount;
+                                            var win = delta > 0;
+                                            <tr class="@(win ? "table-success" : "table-secondary")">
+                                                <td>
+                                                    <span class="badge rounded-pill bg-info text-dark"
+                                                          title="@b.GameId">
+                                                        @GetRoomDisplay(b.GameId)
+                                                    </span>
+                                                </td>
+                                                <td>@b.Amount.ToString("N0") xu</td>
+                                                <td>@payout.ToString("N0") xu</td>
+                                                <td>
+                                                    @if (delta > 0)
+                                                    {
+                                                        <span class="text-success">+@delta.ToString("N0") xu</span>
+                                                    }
+                                                    else if (delta < 0)
+                                                    {
+                                                        <span class="text-danger">@delta.ToString("N0") xu</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">0 xu</span>
+                                                    }
+                                                </td>
+                                                <td>@b.Timestamp.ToLocalTime().ToString("g")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </section>
             }
@@ -115,6 +153,18 @@ else
     private string? _error;
     private readonly List<BetResponseDto> _active = [];
     private readonly List<BetResponseDto> _completed = [];
+
+    private static string GetRoomDisplay(string? gameId)
+    {
+        if (string.IsNullOrWhiteSpace(gameId))
+            return "Phòng ?";
+
+        var trimmed = gameId.Trim();
+        if (trimmed.Length <= 6)
+            return $"Phòng {trimmed}";
+
+        return $"Phòng {trimmed[..6]}…";
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
