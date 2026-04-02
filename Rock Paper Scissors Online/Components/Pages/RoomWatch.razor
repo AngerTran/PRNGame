@@ -402,7 +402,8 @@ else
 
     private void OnViewBetHistory()
     {
-        Nav.NavigateTo("/history/bets", forceLoad: true);
+        // Trang lịch sử cược được khai báo tại BetHistory.razor với route "/me/bets"
+        Nav.NavigateTo("/me/bets", forceLoad: true);
     }
 
     private bool IsBetButtonDisabled(string? playerId) =>
