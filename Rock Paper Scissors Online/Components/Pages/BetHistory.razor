@@ -67,22 +67,36 @@ else
                             <thead>
                                 <tr>
                                     <th>Phòng</th>
-                                    <th>Số xu đã cược</th>
-                                    <th>Xu nhận</th>
-                                    <th>Trạng thái</th>
+                                    <th>Đã cược</th>
+                                    <th>Kết quả</th>
+                                    <th>Lãi / Lỗ</th>
                                     <th>Thời gian</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var b in _completed)
                                 {
-                                    var win = string.Equals(b.Status, "won", StringComparison.OrdinalIgnoreCase)
-                                              || string.Equals(b.Status, "claimed", StringComparison.OrdinalIgnoreCase) && (b.Payout ?? 0) > 0;
+                                    var payout = b.Payout ?? 0;
+                                    var delta = payout - b.Amount;
+                                    var win = delta > 0;
                                     <tr class="@(win ? "table-success" : "table-secondary")">
                                         <td><code>@b.GameId</code></td>
-                                        <td>@b.Amount.ToString("N0")</td>
-                                        <td>@(b.Payout ?? 0).ToString("N0")</td>
-                                        <td>@b.Status</td>
+                                        <td>@b.Amount.ToString("N0") xu</td>
+                                        <td>@payout.ToString("N0") xu</td>
+                                        <td>
+                                            @if (delta > 0)
+                                            {
+                                                <span class="text-success">+@delta.ToString("N0") xu</span>
+                                            }
+                                            else if (delta < 0)
+                                            {
+                                                <span class="text-danger">@delta.ToString("N0") xu</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">0 xu</span>
+                                            }
+                                        </td>
                                         <td>@b.Timestamp.ToLocalTime().ToString("g")</td>
                                     </tr>
                                 }
